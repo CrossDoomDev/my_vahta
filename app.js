@@ -274,7 +274,17 @@ case 'reset':if(confirm('Сбросить все локальные данные
 }}
 document.addEventListener('click',event=>{const el=event.target.closest('button,[data-date]');if(!el)return;const action=el.dataset.action;if(action){handleAction(action,el);return}if(el.dataset.nav){nav(el.dataset.nav);return}if(el.dataset.date){ui.selectedDate=el.dataset.date;render();return}if(el.dataset.ratingLabel){const key=el.dataset.ratingLabel,val=Number(el.dataset.ratingValue);if(Object.hasOwn(state.org.ratings,key)&&val>=1&&val<=5){state.org.ratings[key]=val;persist();render()}return}});
 // Rating stars and date cells are buttons and are handled in one delegated click listener.
-document.addEventListener('change',event=>{const t=event.target;if(t.dataset.privacy){const val=t.value;if(['all','friends','self'].includes(val)){state.privacy[t.dataset.privacy]=val;persist();render();toast('Настройки видимости сохранены')}return}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
+document.addEventListener('change',event=>{const t=event.target;if(t.dataset.privacy){
+ const key=t.dataset.privacy, val=t.value;
+ if(!Object.hasOwn(state.privacy,key)||!['all','friends','self'].includes(val))return;
+ const previous=state.privacy[key];
+ const exposure={self:0,friends:1,all:2};
+ if(key==='finance' && exposure[val]>exposure[previous]){
+   const message=val==='all'?'Разрешить всем пользователям видеть суммы и историю ваших выплат?':'Разрешить друзьям видеть суммы и историю ваших выплат?';
+   if(!confirm(message+' Сейчас прототип хранит данные только на этом устройстве.')){t.value=previous;return}
+ }
+ state.privacy[key]=val;persist();render();toast('Настройки видимости сохранены');return;
+}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
 document.addEventListener('input',event=>{const t=event.target;if(t.id==='friendSearch'){ui.friendSearch=t.value;$('friendResults').innerHTML=friendsMarkup()}if(t.id==='noteSearch'){ui.noteSearch=t.value;const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));$('notesResults').innerHTML=notesMarkup(list)}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='messageInput'){e.preventDefault();sendMessage()}});
 $('dialogForm').addEventListener('submit',e=>{e.preventDefault();if(!onModalSave)return;const callback=onModalSave,success=callback(new FormData(e.currentTarget));if(success!==false){closeDialog();render()}});
