@@ -85,7 +85,7 @@ function friendAvatar(f,size=""){
  const lookup={f1:"alexey",f2:"ivan",f3:"maria",f4:"sergey",f5:"alexey",f6:"ivan"};
  const key=lookup[f.id];
  if(key)return `<img class="friend-portrait ${size}" src="assets/avatar-${key}.svg" alt="" loading="lazy">`;
- return `<span class="avatar ${f.skin||"alt1"} ${size}">${html(f.letter||f.name[0])}</span>`;
+ return `<span class="avatar ${html(f.skin||"alt1")} ${size}">${html(f.letter||f.name[0])}</span>`;
 }
 function friendStatus(f){
  const config={
@@ -95,7 +95,7 @@ function friendStatus(f){
   offline:{label:"Не в сети",detail:"Статус не указан",color:"gray",image:"offline"}
  };
  const info=config[f.state]||config.offline;
- return `<span class="friend-status-panel"><span class="friend-status ${info.color}"><img src="assets/status-${info.image}.svg" alt="" aria-hidden="true"><span>${info.label}</span></span><small>${info.detail}</small></span>`;
+ return `<span class="friend-status-panel"><span class="friend-status ${info.color}"><img src="assets/status-${info.image}.svg" alt="" aria-hidden="true"><span>${html(info.label)}</span></span><small>${html(info.detail)}</small></span>`;
 }
 function friendsPage(){
  const count=state.friends.length;
