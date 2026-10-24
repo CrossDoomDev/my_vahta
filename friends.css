@@ -66,3 +66,47 @@
 .friend-profile-actions>*{flex:1}
 .friend-profile-actions svg{width:15px;height:15px;vertical-align:-3px}
 @media(max-width:375px){.friend-list-row{grid-template-columns:43px minmax(0,1fr) minmax(92px,auto);gap:7px}.friend-chevron{display:none}.friend-portrait,.friend-picture{width:43px;height:43px}.friend-status{font-size:10px;padding:3px 5px}.friend-status img{width:20px;height:20px}.friend-status-panel>small{font-size:9px}.friend-profile-head{gap:10px}.friend-portrait.profile-avatar-xl{width:77px;height:77px}.friend-profile-info h2{font-size:16px}}
+
+/* Разрешённые финансовые данные и подробная оценка работодателя */
+.friend-rating-overview{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
+.friend-rating-number{font-size:31px;font-weight:850;color:#ffb15b;line-height:1}
+.friend-rating-stars{font-size:20px;color:#ff992e;display:flex;align-items:center;gap:7px}
+.friend-rating-stars span{font-size:11px;color:#9caebe;font-weight:600}
+.friend-rating-breakdown{padding:2px 0 6px}
+.friend-rating-criterion{display:grid;grid-template-columns:minmax(0,1fr) auto 30px;align-items:center;gap:9px;padding:10px 0;border-top:1px solid #293b4b}
+.friend-rating-label{color:#dee8f2;font-size:11px;line-height:1.3}
+.friend-rating-icons{display:flex;align-items:center;gap:1px;white-space:nowrap}
+.friend-rating-icons span{font-size:17px;color:#495664;line-height:1}
+.friend-rating-icons span.lit{color:#ff962b}
+.friend-rating-criterion>b{color:#eaf2fa;font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.friend-org-review{padding:12px;background:#1b2b36;border:1px solid #2b4052;border-radius:10px;margin:7px 0 0}
+.friend-shared-pill{display:inline-flex;align-items:center;gap:5px;background:#18392d;color:#79eab2;border:1px solid #2a7255;border-radius:9px;padding:6px 8px;font-size:9px;white-space:nowrap}
+.friend-shared-pill svg{width:12px;height:12px}
+.friend-finance-total{display:flex;flex-direction:column;gap:5px;border-radius:11px;border:1px solid #2b5246;background:#152d29;padding:12px}
+.friend-finance-total small{font-size:10px;color:#b2cbbe}
+.friend-finance-total strong{font-size:23px;color:#6aefb3}
+.friend-finance-items{margin-top:9px}
+.friend-finance-row{display:flex;gap:12px;align-items:center;justify-content:space-between;border-bottom:1px solid #2e404d;padding:11px 0}
+.friend-finance-row:last-child{border-bottom:none}
+.friend-finance-row>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.friend-finance-row>span>b{font-size:12px;color:#e8f2f7}
+.friend-finance-row small{color:#9aafc0;font-size:10px}
+.friend-finance-row>strong{color:#68dda6;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.friend-finance-disclaimer{line-height:1.5;margin-top:8px}
+.shared-finance-preview{padding:11px 9px;background:#15332b;border-radius:10px;margin-top:10px;border:1px solid #255440}
+.shared-finance-preview>strong{font-size:12px}
+.shared-finance-preview>p{margin:5px 0 9px}
+.shared-payment-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #305247;font-size:10px}
+.shared-payment-row span{color:#aac1b5;min-width:0}
+.shared-payment-row b{color:#78efb1;white-space:nowrap}
+.finance-private-note{font-size:11px;color:#a2b1bf;padding:10px;margin-top:10px;border-radius:9px;background:#192938}
+.finance-privacy-warning{display:flex;gap:9px;padding:11px;border-radius:9px;background:#403020;border:1px solid #765535;color:#f9d3a0;font-size:11px;line-height:1.55;margin-top:8px}
+.finance-privacy-warning svg{width:17px;height:17px;flex:none;color:#ff9c40}
+.finance-privacy-link{display:inline;border:0;border-radius:0;background:none;padding:0 1px;margin:0 0 0 4px;color:#ffbc6f;text-decoration:underline;font-weight:700;font-size:inherit}
+@media(max-width:380px){
+ .friend-rating-criterion{grid-template-columns:minmax(0,1fr) auto 24px;gap:5px}
+ .friend-rating-label{font-size:10px}
+ .friend-rating-icons span{font-size:15px}
+ .friend-rating-criterion>b{font-size:10px}
+ .friend-finance-total strong{font-size:20px}
+}
