@@ -116,3 +116,7 @@
 .chat-header-avatar{width:39px!important;height:39px!important;flex:none}
 .chat-profile-trigger{display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent;border-radius:50%;cursor:pointer}
 .chat-profile-trigger:focus-visible{outline:2px solid #ff9e45;outline-offset:3px}
+
+/* Fallback initials keep the same size as image avatars when a user has no photo. */
+.avatar.profile-avatar-xl{width:92px;height:92px;flex:none;border-radius:18px;font-size:30px}
+@media(max-width:375px){.avatar.profile-avatar-xl{width:77px;height:77px;font-size:25px}}
