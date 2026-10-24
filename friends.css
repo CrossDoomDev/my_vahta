@@ -110,3 +110,9 @@
  .friend-rating-criterion>b{font-size:10px}
  .friend-finance-total strong{font-size:20px}
 }
+
+/* One visual avatar component shared by friends, recent messages and chat threads. */
+.chat-row > .friend-portrait,.chat-row > .avatar{width:47px;height:47px;flex:none;border-radius:50%;object-fit:cover}
+.chat-header-avatar{width:39px!important;height:39px!important;flex:none}
+.chat-profile-trigger{display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent;border-radius:50%;cursor:pointer}
+.chat-profile-trigger:focus-visible{outline:2px solid #ff9e45;outline-offset:3px}
