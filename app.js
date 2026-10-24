@@ -122,21 +122,48 @@ function friendsMarkup(){
  <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small></span>
  ${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
 }
+function friendOrganizationSection(demo){
+ const ratings=demo.ratings;
+ if(!ratings || demo.ratingAccess==="self"){
+   return `<article class="card friend-profile-section"><h3>${icon("star")} Оценка организации</h3><div class="friend-sharing-note">${icon("lock")} Пользователь не открыл доступ к своим оценкам.</div></article>`;
+ }
+ const scores=Object.values(ratings).map(Number);
+ const avg=scores.length? (scores.reduce((sum,val)=>sum+val,0)/scores.length).toFixed(1):"—";
+ return `<article class="card friend-profile-section">
+ <div class="row between"><h3>${icon("star")} Оценка организации</h3><span class="muted tiny">Демонстрационные оценки</span></div>
+ <div class="friend-rating-overview"><span class="friend-rating-number">${avg}</span><span class="friend-rating-stars" aria-label="Средняя оценка ${avg} из 5">★ <span>${html("из 5")}</span></span></div>
+ <div class="friend-rating-breakdown">
+ ${Object.entries(ratings).map(([name,value])=>{
+   const safe=Math.max(0,Math.min(5,Number(value)||0));
+   return `<div class="friend-rating-criterion"><span class="friend-rating-label">${html(name)}</span><span class="friend-rating-icons" aria-label="${html(name)}: ${safe} из 5">${[1,2,3,4,5].map(i=>`<span aria-hidden="true" class="${i<=safe?'lit':''}">★</span>`).join("")}</span><b>${safe.toFixed(1)}</b></div>`;
+ }).join("")}
+ </div>
+ ${demo.reviewAccess==="self"?`<div class="friend-sharing-note">${icon("lock")} Комментарий об организации скрыт.</div>`:demo.review?`<p class="friend-about friend-org-review">«${html(demo.review)}»</p>`:""}
+ </article>`;
+}
+function friendFinancialSection(demo){
+ const visible=demo.financeAccess==="friends"||demo.financeAccess==="all";
+ if(!visible)return `<article class="card friend-profile-section"><h3>${icon("coins")} Финансы</h3><div class="friend-sharing-note">${icon("lock")} Друг не разрешил просматривать суммы и историю выплат.</div></article>`;
+ const payments=Array.isArray(demo.payments)?demo.payments:[];
+ const total=payments.reduce((sum,p)=>sum+(Number(p.amount)||0),0);
+ return `<article class="card friend-profile-section">
+ <div class="row between"><h3>${icon("coins")} Финансы</h3><span class="friend-shared-pill">${icon("eye")} Доступно друзьям</span></div>
+ <div class="friend-finance-total"><small>Получено за отмеченный период</small><strong>${money(total)}</strong></div>
+ ${payments.length?`<div class="friend-finance-items">${payments.map(p=>`<div class="friend-finance-row"><span><b>${html(paymentType(p.type))}</b><small>${html(dateFull(p.date))}</small></span><strong>+ ${money(p.amount)}</strong></div>`).join("")}</div>`:'<p class="friend-about">Выплаты пока не добавлены.</p>'}
+ <p class="tiny muted friend-finance-disclaimer">Демонстрационные выплаты, не данные реальных людей.</p>
+ </article>`;
+}
 function friendProfilePage(){
  const f=state.friends.find(x=>x.id===ui.friendId);
  if(!f)return `${title("Анкета друга")}${button("К списку друзей","back-to-friends","primary")}`;
- const demo={
- f1:{location:"ЯНАО, Новопортовское месторождение",schedule:"60/30",experience:"5 лет",about:"Работаю вахтовым методом. Люблю технику и надёжных людей.",rating:"4.6",review:"Хорошие условия на объекте, выплаты по графику."},
- f2:{location:"Тюменская область",schedule:"30/30",experience:"3 года",about:"Электромонтаж, работа на промышленных объектах.",rating:"4.2",review:"Команда отличная, условия нормальные."},
- f3:{location:"Красноярский край",schedule:"45/45",experience:"6 лет",about:"Исследую новые места и люблю путешествия.",rating:"4.4",review:"Интересные проекты и дружный коллектив."},
- f4:{location:"Республика Коми",schedule:"30/30",experience:"4 года",about:"Ремонт и обслуживание промышленного оборудования.",rating:"4.0",review:"Стабильная работа и понятные задачи."}
- }[f.id]||{location:"Не указано",schedule:"Не указан",experience:"Не указан",about:"Информация о себе пока не заполнена.",rating:null,review:""};
+ const demo={"f1":{"location":"ЯНАО, Новопортовское месторождение","schedule":"60/30","experience":"5 лет","about":"Работаю вахтовым методом. Люблю технику и надёжных людей.","ratings":{"Зарплата":4,"Бытовые условия":5,"Руководство":4,"График вахты":5},"review":"Хорошие условия на объекте, выплаты по графику.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"friends","payments":[{"date":"2026-10-10","type":"advance","amount":55000},{"date":"2026-09-25","type":"salary","amount":73000}]},"f2":{"location":"Тюменская область","schedule":"30/30","experience":"3 года","about":"Электромонтаж, работа на промышленных объектах.","ratings":{"Зарплата":4,"Бытовые условия":4,"Руководство":3,"График вахты":4},"review":"Команда отличная, условия нормальные.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"self","payments":[]},"f3":{"location":"Красноярский край","schedule":"45/45","experience":"6 лет","about":"Исследую новые места и люблю путешествия.","ratings":{"Зарплата":5,"Бытовые условия":4,"Руководство":4,"График вахты":5},"review":"Интересные проекты и дружный коллектив.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"self","payments":[]},"f4":{"location":"Республика Коми","schedule":"30/30","experience":"4 года","about":"Ремонт и обслуживание промышленного оборудования.","ratings":{"Зарплата":4,"Бытовые условия":3,"Руководство":4,"График вахты":4},"review":"Стабильная работа и понятные задачи.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"friends","payments":[{"date":"2026-10-15","type":"advance","amount":48000},{"date":"2026-09-30","type":"salary","amount":62000}]}}[f.id]||{location:"Не указано",schedule:"Не указан",experience:"Не указан",about:"Информация о себе пока не заполнена.",ratings:null,review:"",ratingAccess:"self",reviewAccess:"self",financeAccess:"self",payments:[]};
  const safeId=html(f.id);
  const isVisible=f.state!=="offline";
  return `<div class="friend-profile-header"><button type="button" class="friend-back" data-action="back-to-friends" aria-label="Назад к друзьям">${icon("arrow-left")}</button><h1>Профиль друга</h1><button type="button" class="friend-message-icon" data-action="chat-friend" data-id="${safeId}" aria-label="Написать другу">${icon("chat")}</button></div>
  <article class="card friend-profile-main"><div class="friend-profile-head">${friendAvatar(f,"profile-avatar-xl")}<div class="friend-profile-info"><h2>${html(f.name)}</h2><p>${html(f.company||"Организация не указана")}</p><p>${html(f.role||"Профессия не указана")}</p>${friendStatus(f)}</div></div></article>
  <article class="card friend-profile-section"><h3>${icon("friends")} О человеке</h3><p class="friend-about">${html(demo.about)}</p><dl class="friend-profile-facts"><div><dt>Организация</dt><dd>${html(f.company||"Не указана")}</dd></div><div><dt>Должность</dt><dd>${html(f.role||"Не указана")}</dd></div><div><dt>График</dt><dd>${html(demo.schedule)}</dd></div><div><dt>Регион</dt><dd>${html(demo.location)}</dd></div><div><dt>Стаж</dt><dd>${html(demo.experience)}</dd></div></dl></article>
- ${demo.rating?`<article class="card friend-profile-section"><div class="row between"><h3>${icon("star")} Организация</h3><span class="muted tiny">Демо-отзыв</span></div><div class="friend-rating"><b>${demo.rating}</b><span class="friend-starline">★★★★★</span></div><p class="friend-about">«${html(demo.review)}»</p></article>`:""}
+ ${friendOrganizationSection(demo)}
+ ${friendFinancialSection(demo)}
  <article class="card friend-profile-section"><h3>${icon("calendar")} Текущий статус</h3><div class="friend-shift-card">${friendStatus(f)}${isVisible?`<div class="friend-shift-track"><span style="width:${Math.max(9,100-Math.min(90,Math.max(0,Number(f.days)||0)))}%"></span></div>`:""}</div>
  <div class="friend-sharing-note">${icon("shield")} Это демонстрационные данные. В реальном приложении календарь и отсчёт будут показаны только с разрешения друга.</div></article>
  <article class="card friend-profile-section"><h3>${icon("lock")} Конфиденциальность</h3><p class="friend-about">Анкета показывает только разрешённые владельцем сведения. Точные даты и календарь вахт могут быть скрыты.</p></article>
