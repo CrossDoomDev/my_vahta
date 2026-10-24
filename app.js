@@ -20,13 +20,19 @@ const weekday = iso => parseISO(iso).toLocaleDateString('ru-RU',{weekday:'long'}
 const money = num => `${Math.round(Number(num)||0).toLocaleString('ru-RU')} ₽`;
 const COLORS = ["orange","green","blue","purple","red"];
 function seed(){const now=today(),old=shiftDate(now,-11),end=shiftDate(now,18),previous=addMonth(currentMonth(),-1);
- return {version:1,profile:{name:"Мой профиль",profession:"Машинист экскаватора",sector:"Строительство"},shift:{start:old,end},vacation:false,
+ return {version:2,profile:{name:"Мой профиль",profession:"Машинист экскаватора",sector:"Строительство"},shift:{start:old,end},vacation:false,
  org:{name:"ООО «СеверСтрой»",description:"Строительство и обслуживание объектов",region:"Северный регион",ratings:{"Зарплата":4,"Бытовые условия":4,"Руководство":3,"График вахты":5},comment:"В целом устраивают условия работы. Есть нюансы с графиком, но коллектив хороший."},
  privacy:{status:"friends",countdown:"friends",calendar:"self",org:"friends",rating:"friends",comment:"self",finance:"self"},
  payments:[{id:id(),date:shiftDate(now,-2),type:"advance",amount:60000,description:""},{id:id(),date:`${previous}-20`,type:"salary",amount:68000,description:""}],
  notes:[{id:id(),title:"На следующую вахту",category:"Сборы",text:"",tasks:[{text:"Рабочая одежда",done:true},{text:"Термобельё",done:false},{text:"Документы",done:false},{text:"Зарядные устройства",done:false}],updated:now},{id:id(),title:"Идеи и планы",category:"Личное",text:"Не забыть про новые идеи для проекта.\nПозвонить домой в выходной.",tasks:[],updated:now}],
- friends:[{id:"f1",name:"Алексей Петров",role:"Бурильщик",company:"Северное бурение",state:"shift",days:12,letter:"А",skin:"alt1"},{id:"f2",name:"Иван Соколов",role:"Электромонтажник",company:"Строймонтаж",state:"rest",days:8,letter:"И",skin:"alt4"},{id:"f3",name:"Мария Соколова",role:"Геолог",company:"Георазведка",state:"vacation",days:5,letter:"М",skin:"alt2"},{id:"f4",name:"Сергей Кузнецов",role:"Механик",company:"Северная база",state:"shift",days:27,letter:"С",skin:"alt3"}],
- chats:[{id:"f1",name:"Алексей Петров",letter:"А",skin:"alt1",unread:2,messages:[{id:id(),out:false,text:"Привет! Как там на объекте?",time:"09:12"},{id:id(),out:false,text:"Всё нормально? Когда домой?",time:"09:24"}]},{id:"f2",name:"Иван Соколов",letter:"И",skin:"alt4",unread:1,messages:[{id:id(),out:false,text:"Увидимся на межвахте!",time:"Вчера"}]},{id:"f3",name:"Мария Соколова",letter:"М",skin:"alt2",unread:0,messages:[{id:id(),out:true,text:"Привет! Как отпуск?",time:"Вчера"},{id:id(),out:false,text:"Отлично, отдыхаю 😊",time:"Вчера"}]}],
+ accounts:{
+   f1:{id:"f1",name:"Алексей Петров",role:"Бурильщик",company:"Северное бурение",avatarUrl:"assets/avatar-alexey.svg",letter:"А",skin:"alt1"},
+   f2:{id:"f2",name:"Иван Соколов",role:"Электромонтажник",company:"Строймонтаж",avatarUrl:"assets/avatar-ivan.svg",letter:"И",skin:"alt4"},
+   f3:{id:"f3",name:"Мария Соколова",role:"Геолог",company:"Георазведка",avatarUrl:"assets/avatar-maria.svg",letter:"М",skin:"alt2"},
+   f4:{id:"f4",name:"Сергей Кузнецов",role:"Механик",company:"Северная база",avatarUrl:"assets/avatar-sergey.svg",letter:"С",skin:"alt3"}
+ },
+ friends:[{accountId:"f1",state:"shift",days:12},{accountId:"f2",state:"rest",days:8},{accountId:"f3",state:"vacation",days:5},{accountId:"f4",state:"shift",days:27}],
+ chats:[{id:"chat-f1",participantAccountId:"f1",unread:2,messages:[{id:id(),out:false,text:"Привет! Как там на объекте?",time:"09:12"},{id:id(),out:false,text:"Всё нормально? Когда домой?",time:"09:24"}]},{id:"chat-f2",participantAccountId:"f2",unread:1,messages:[{id:id(),out:false,text:"Увидимся на межвахте!",time:"Вчера"}]},{id:"chat-f3",participantAccountId:"f3",unread:0,messages:[{id:id(),out:true,text:"Привет! Как отпуск?",time:"Вчера"},{id:id(),out:false,text:"Отлично, отдыхаю 😊",time:"Вчера"}]}],
  notifications:[{id:id(),title:"Вахта скоро закончится",body:"Осталось менее 3 недель до возвращения домой.",date:now,read:false,kind:"shift"},{id:id(),title:"Профессиональные праздники",body:"В календаре появились праздники разных профессий.",date:now,read:false,kind:"holiday"},{id:id(),title:"Новые сообщения",body:"У вас есть непрочитанные сообщения.",date:now,read:false,kind:"message"}]
  };}
 function migratePrivacy(x) {
@@ -42,7 +48,73 @@ function migratePrivacy(x) {
   }
   return x;
 }
-function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||x.version!==1||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return seed();return migratePrivacy(x)}catch{return seed()}}
+
+// Identity is stored once in accounts; friendships and conversations reference immutable accountId.
+// These objects mirror entities that a server API will return when authentication is added.
+function migrateSocial(x) {
+  if (!x || typeof x !== "object") return x;
+  const accounts = x.accounts && typeof x.accounts === "object" && !Array.isArray(x.accounts) ? {...x.accounts} : {};
+  const defaultAvatar = {f1:"alexey",f2:"ivan",f3:"maria",f4:"sergey"};
+  const adoptAccount = (raw, accountId) => {
+    if (!accountId) return;
+    const old = accounts[accountId] && typeof accounts[accountId] === "object" ? accounts[accountId] : {};
+    const name = String(old.name || raw?.name || "Пользователь").slice(0,80);
+    const preset = defaultAvatar[accountId] ? "assets/avatar-" + defaultAvatar[accountId] + ".svg" : "";
+    accounts[accountId] = {
+      id: accountId,
+      name,
+      role: String(old.role || raw?.role || "").slice(0,100),
+      company: String(old.company || raw?.company || "").slice(0,100),
+      avatarUrl: String(old.avatarUrl || raw?.avatarUrl || preset),
+      letter: String(old.letter || raw?.letter || name.slice(0,1)).slice(0,2),
+      skin: String(old.skin || raw?.skin || "alt1").slice(0,12)
+    };
+  };
+  const friends = Array.isArray(x.friends) ? x.friends : [];
+  const links = [];
+  const linked = new Set();
+  for (const raw of friends) {
+    if (!raw || typeof raw !== "object") continue;
+    const accountId = String(raw.accountId || raw.id || "");
+    if (!accountId || linked.has(accountId)) continue;
+    adoptAccount(raw, accountId);
+    links.push({accountId, state:["shift","rest","vacation","offline"].includes(raw.state)?raw.state:"offline", days:Math.max(0,Math.min(9999,Number(raw.days)||0))});
+    linked.add(accountId);
+  }
+  x.friends = links;
+  x.chats = (Array.isArray(x.chats)?x.chats:[]).filter(ch=>ch && typeof ch==="object").map((ch,i)=>{
+    const accountId = String(ch.participantAccountId || ch.accountId || ch.id || "");
+    if(!accountId) return null;
+    adoptAccount(ch,accountId);
+    return {
+      id:String(ch.id || "conversation-"+i),
+      participantAccountId:accountId,
+      unread:Math.max(0,Number(ch.unread)||0),
+      messages:Array.isArray(ch.messages)?ch.messages:[]
+    };
+  }).filter(Boolean);
+  x.accounts = accounts;
+  x.version = 2;
+  return x;
+}
+function accountById(accountId) {return state.accounts?.[String(accountId)] || null}
+function friendByAccountId(accountId) {
+ const link = state.friends.find(f=>f.accountId===accountId);
+ const account = accountById(accountId);
+ return link && account ? {...account,state:link.state,days:link.days} : null;
+}
+function avatarByAccountId(accountId, size="") {
+ const account=accountById(accountId);
+ const name=account?.name || "Пользователь";
+ const src=String(account?.avatarUrl||"");
+ // Only safe HTTPS or own asset/media paths are accepted in generated HTML.
+ const allowed=/^(?:assets\/[\w./-]+\.(?:svg|png|jpg|jpeg|webp)|\/media\/[\w./-]+\.(?:svg|png|jpg|jpeg|webp)|https:\/\/[^\s"'<>]+)$/i.test(src)&&!src.includes("..");
+ if (allowed) return `<img class="friend-portrait ${html(size)}" src="${html(src)}" alt="" loading="lazy">`;
+ const skins=["alt1","alt2","alt3","alt4"];
+ const hash=[...String(accountId)].reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
+ return `<span class="avatar ${skins[hash%skins.length]} ${html(size)}">${html(account?.letter || name.slice(0,1))}</span>`;
+}
+function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return seed();return migrateSocial(migratePrivacy(x))}catch{return seed()}}
 let state=load();
 const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null};
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch{toast("Не удалось сохранить данные. Проверьте свободное место.")}}
@@ -243,7 +315,7 @@ function startChat(){if(!state.friends.length){toast('Сначала добав�
 function openChat(friendId){const friend=state.friends.find(f=>f.id===friendId);let chat=state.chats.find(c=>c.id===friendId);if(!chat){if(!friend){toast('Друг не найден.');return}chat={id:friend.id,name:friend.name,letter:friend.letter,skin:friend.skin,unread:0,messages:[]};state.chats.unshift(chat)}chat.unread=0;persist();ui.chatId=chat.id;nav('thread')}
 function sendMessage(){const input=$('messageInput');if(!input)return;const value=input.value.trim();if(!value)return;const chat=state.chats.find(c=>c.id===ui.chatId);if(!chat)return;chat.messages.push({id:id(),out:true,text:value.slice(0,1000),time:new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})});persist();render();$('appMain').scrollTop=$('appMain').scrollHeight;/* Сообщение отображается в беседе */}
 function dataExport(){const blob=new Blob([JSON.stringify({...state,exportedAt:new Date().toISOString()},null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`moya-vahta-${today()}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('Резервная копия сохранена')}
-function validateBackup(x){if(!x||x.version!==1||typeof x.profile?.name!=='string'||typeof x.shift?.start!=='string'||typeof x.shift?.end!=='string'||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.friends)||!Array.isArray(x.chats)||!Array.isArray(x.notifications)||!x.privacy||!x.org)throw Error('Некорректный формат резервной копии');if(x.payments.length>20000||x.notes.length>5000||x.friends.length>5000||x.chats.length>2000)throw Error('Слишком большой архив');if(!/^\d{4}-\d{2}-\d{2}$/.test(x.shift.start)||!/^\d{4}-\d{2}-\d{2}$/.test(x.shift.end)||x.shift.start>x.shift.end)throw Error('Неверные даты вахты');return x}
+function validateBackup(x){if(!x||![1,2].includes(x.version)||typeof x.profile?.name!=='string'||typeof x.shift?.start!=='string'||typeof x.shift?.end!=='string'||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.friends)||!Array.isArray(x.chats)||!Array.isArray(x.notifications)||!x.privacy||!x.org)throw Error('Некорректный формат резервной копии');if(x.payments.length>20000||x.notes.length>5000||x.friends.length>5000||x.chats.length>2000)throw Error('Слишком большой архив');if(!/^\d{4}-\d{2}-\d{2}$/.test(x.shift.start)||!/^\d{4}-\d{2}-\d{2}$/.test(x.shift.end)||x.shift.start>x.shift.end)throw Error('Неверные даты вахты');return x}
 function handleAction(action,el){switch(action){
 case 'close-dialog':closeDialog();return;
 case 'go-home':nav('home');return;
@@ -295,7 +367,7 @@ document.addEventListener('change',event=>{const t=event.target;if(t.dataset.pri
 document.addEventListener('input',event=>{const t=event.target;if(t.id==='friendSearch'){ui.friendSearch=t.value;$('friendResults').innerHTML=friendsMarkup()}if(t.id==='noteSearch'){ui.noteSearch=t.value;const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));$('notesResults').innerHTML=notesMarkup(list)}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='messageInput'){e.preventDefault();sendMessage()}});
 $('dialogForm').addEventListener('submit',e=>{e.preventDefault();if(!onModalSave)return;const callback=onModalSave,success=callback(new FormData(e.currentTarget));if(success!==false){closeDialog();render()}});
-$('importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>3*1024*1024){toast('Файл больше 3 МБ.');return}try{const incoming=migratePrivacy(validateBackup(JSON.parse(await file.text())));if(!confirm('Импорт заменит текущие данные. Продолжить?'))return;state=incoming;persist();nav('home');toast('Данные восстановлены')}catch(err){toast('Ошибка импорта: '+err.message)}});
+$('importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>3*1024*1024){toast('Файл больше 3 МБ.');return}try{const incoming=migrateSocial(migratePrivacy(validateBackup(JSON.parse(await file.text()))));if(!confirm('Импорт заменит текущие данные. Продолжить?'))return;state=incoming;persist();nav('home');toast('Данные восстановлены')}catch(err){toast('Ошибка импорта: '+err.message)}});
 $('appDialog').addEventListener('click',e=>{if(e.target===$('appDialog'))closeDialog()});
 window.addEventListener('focus',()=>{render()});
 // Use hash navigation only for known top-level views. Never interpolate it into HTML.
