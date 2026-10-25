@@ -271,3 +271,36 @@ class APITests(TestCase):
         self.assertEqual(self.client.get("/api/v1/notifications/").data["count"], 0)
         self.assertEqual(self.client.patch(route, {"enabled": True}, format="json").status_code, 200)
         self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 1)
+
+    def test_online_presence_filters_and_privacy(self):
+        from django.utils import timezone
+        low, high = sorted((self.alice.pk, self.bob.pk))
+        Friendship.objects.create(user_low_id=low, user_high_id=high)
+        self.login(self.alice)
+        result = self.client.get("/api/v1/friends/")
+        self.assertEqual(result.status_code, 200)
+        self.assertFalse(result.data["results"][0]["is_online"])
+        self.assertEqual(result.data["results"][0]["work_status"], "shift")
+        self.login(self.bob)
+        ping = self.client.post("/api/v1/me/presence/")
+        self.assertEqual(ping.status_code, 200)
+        self.login(self.alice)
+        self.assertTrue(self.client.get("/api/v1/friends/").data["results"][0]["is_online"])
+        Profile.objects.filter(user=self.bob).update(last_seen_at=timezone.now()-timedelta(minutes=4))
+        self.assertFalse(self.client.get("/api/v1/friends/").data["results"][0]["is_online"])
+        self.login(self.bob)
+        self.client.patch("/api/v1/me/privacy/", {"status": "self"}, format="json")
+        self.client.post("/api/v1/me/presence/")
+        self.login(self.alice)
+        hidden = self.client.get("/api/v1/friends/").data["results"][0]
+        self.assertIsNone(hidden["work_status"])
+        self.assertFalse(hidden["is_online"])
+
+    def test_presence_endpoint_requires_login_and_clears_on_logout(self):
+        self.client.credentials()
+        self.assertEqual(self.client.post("/api/v1/me/presence/").status_code, 401)
+        self.login(self.bob)
+        self.assertEqual(self.client.post("/api/v1/me/presence/").status_code, 200)
+        self.assertIsNotNone(Profile.objects.get(user=self.bob).last_seen_at)
+        self.assertEqual(self.client.post("/api/v1/auth/logout/").status_code, 204)
+        self.assertIsNone(Profile.objects.get(user=self.bob).last_seen_at)
