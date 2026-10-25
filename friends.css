@@ -14,8 +14,8 @@
 .friends-heading{flex-wrap:wrap}
 .friends-sort-controls{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-left:auto}
 .friends-sort-controls select{max-width:none;min-height:36px}
-.friends-sort-controls #friendFilter{max-width:132px}
-.friends-sort-controls #friendSort{max-width:140px}
+.friends-sort-controls #friendFilter,.friends-sort-controls #mvFriendFilter{max-width:132px}
+.friends-sort-controls #friendSort,.friends-sort-controls #mvFriendSort{max-width:140px}
 @media(max-width:440px){.friends-sort-controls{width:100%;margin-left:0;justify-content:stretch}.friends-sort-controls select{flex:1;min-width:0;max-width:none!important}}
 
 .friend-list{padding:3px 12px!important}
@@ -212,3 +212,9 @@
 .notice-help{font-size:11px;color:#adc1d1;line-height:1.5;margin-top:6px}
 .notice-disclaimer{margin:14px 1px 20px;line-height:1.55}
 @media(max-width:390px){.notice-setting-row{gap:8px}.notice-setting-icon{flex-basis:30px;width:30px;height:30px}.notice-days-row{padding-left:38px}.notice-days-row select{min-width:115px}}
+
+.server-friend-statuses{display:flex;flex-direction:column;gap:4px;align-items:flex-end;min-width:68px}
+.server-friend-presence{color:#96a8b9;font-size:11px;white-space:nowrap}
+.server-friend-presence.online{color:#56daa0}
+.server-friend-work{color:#b5c4d1;font-size:10px;white-space:nowrap}
+@media(max-width:420px){.server-friend-statuses{align-items:flex-start;flex-basis:100%;padding-left:42px}}
