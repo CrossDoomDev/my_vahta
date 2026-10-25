@@ -236,11 +236,7 @@
         </section>`;
       }).join("")}
       <label class="field"><span>Общий комментарий</span><textarea name="reviewOverall" maxlength="1200" rows="3" placeholder="Дополнительные подробности">${esc(old?.overall||"")}</textarea></label>
-      <label class="field"><span>Кто видит мой отзыв</span><select id="reviewScope" name="reviewScope">
-        ${[["all","Все пользователи"],["friends","Все друзья"],["selected","Избранные друзья"],["self","Только я"]].map(([v,t])=>`<option value="${v}" ${old?.scope===v?"selected":""}>${t}</option>`).join("")}
-      </select></label>
-      <fieldset class="org-selected-friends" id="reviewSelectedFriends" ${old?.scope==="selected"?"":"hidden"}><legend>Разрешённые друзья</legend>${(state.friends||[]).map(f=>{const a=state.accounts[f.accountId];return a?`<label><input type="checkbox" name="reviewAllowed" value="${esc(a.id)}" ${old?.allowedAccountIds?.includes(a.id)?"checked":""}> ${esc(a.name)}</label>`:""}).join("")}</fieldset>
-      <label class="org-anonymous"><input type="checkbox" name="reviewAnonymous" value="yes" ${old?.anonymous?"checked":""}> Не показывать моё имя в каталоге</label>
+      <p class="note-text">Видимость отзыва и анонимность настраиваются в разделе «Ещё → Конфиденциальность». Новый отзыв по умолчанию виден только вам.</p>
     </div>`;
   }
   function compressFile(file){
@@ -284,13 +280,13 @@
       if(upload&&upload.size)photo=await compressFile(upload);
       sections[c.id]={rating,comment,photo};
     }
-    const scope=String(form.get("reviewScope")||"all");
-    if(!["all","friends","selected","self"].includes(scope))throw Error("Некорректная видимость");
+    // Review privacy is managed only from More > Privacy; preserve it on edits.
+    const scope=["all","friends","selected","self"].includes(old?.scope)?old.scope:"self";
     const newReview={
       id:old?.id||"my-review-"+Date.now(),organizationId:orgId,authorAccountId:"me",
       createdAt:new Date().toISOString().slice(0,10),scope,
-      allowedAccountIds:scope==="selected"?form.getAll("reviewAllowed").map(String).slice(0,100):[],
-      anonymous:form.get("reviewAnonymous")==="yes",
+      allowedAccountIds:Array.isArray(old?.allowedAccountIds)?old.allowedAccountIds.slice(0,100):[],
+      anonymous:Boolean(old?.anonymous),
       worksite:String(form.get("reviewWorksite")||"").trim().slice(0,120),
       overall:String(form.get("reviewOverall")||"").trim().slice(0,1200),
       sections
