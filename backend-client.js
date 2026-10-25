@@ -12,6 +12,7 @@
   get connected(){return Boolean(available&&token&&account)},
   get notificationCount(){return notificationCount},
   get requestCount(){return requestCount},
+  saveNotificationSettings:updateNotificationSettings,
   onRender,
   label(){return account?"Вход выполнен: "+account.handle+". Синхронизация запускается вручную.":"Django доступен. Войдите или создайте тестовый аккаунт."},
   open
@@ -30,6 +31,17 @@
    const error=new Error(summary||"HTTP "+res.status);error.status=res.status;throw error;
   }
   return payload;
+ }
+ async function loadNotificationSettings(){
+  if(!state.connected)return;
+  try{
+   const prefs=await api("/me/notification-preferences/");
+   window.MV_APP_BRIDGE?.setNotificationPreferences?.(prefs);
+  }catch{/* Keep local settings when this endpoint is unavailable. */}
+ }
+ async function updateNotificationSettings(partial){
+  if(!state.connected)throw Error("Войдите на локальный сервер.");
+  return api("/me/notification-preferences/","PATCH",partial);
  }
  function escape(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
  function message(text,bad=false){const el=dialog?.querySelector("#mvServerMessage");if(el){el.textContent=text;el.style.color=bad?"#ffaaa8":"#a8ebcc"}}
@@ -152,6 +164,7 @@
     await api("/friends/"+encodeURIComponent(btn.dataset.id)+"/","DELETE");
    }
    if(action==="read")await api("/notifications/"+encodeURIComponent(btn.dataset.id)+"/read/","POST");
+    if(action==="read-all")await api("/notifications/read-all/","POST");
    if(action==="request")btn.textContent="Отправлена";
    refresh();
    await loadCounts();
@@ -184,6 +197,7 @@
     token=response.token;sessionStorage.setItem(STORAGE,token);
     account=response.account;
     await updateRevision();
+    await loadNotificationSettings();
     showAccount();refresh();message("Подключено. Данные можно загрузить или отправить вручную.");
    }catch(err){message(err.message,true)}
    finally{submit.disabled=false}
@@ -259,7 +273,7 @@
   if(!available){return}
   ensureDialog();
   if(token&&!account){
-   try{account=await api("/me/");await updateRevision()}catch{token="";sessionStorage.removeItem(STORAGE);account=null}
+   try{account=await api("/me/");await updateRevision();await loadNotificationSettings()}catch{token="";sessionStorage.removeItem(STORAGE);account=null}
   }
   if(account)showAccount();else showForm();
   if(!dialog.open)dialog.showModal();
