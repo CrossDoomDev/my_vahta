@@ -822,6 +822,7 @@ window.addEventListener('storage',event=>{
 // Explicit local-server import/export bridge; no automatic upload of demo or private data.
 window.MV_APP_BRIDGE={
  refresh:()=>render(),
+ localUnreadNoticeCount:()=>state.notifications.filter(n=>!n.read&&['shift','holidays','holiday','payments','payment'].includes(n.kind)&&notificationsEnabled(n.kind)).length,
  markLocalNotificationsRead:()=>{
   state.notifications.filter(n=>['shift','holidays','holiday','payments','payment'].includes(n.kind)).forEach(n=>n.read=true);
   persist();render();
