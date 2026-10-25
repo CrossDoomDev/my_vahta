@@ -1,0 +1,121 @@
+# Моя вахта — запуск Django и PostgreSQL на Windows
+
+Это инструкция для автора проекта и Codex. Сервер разворачивается **на ноутбуке**, без VPS и без Docker. Рабочая ветка GitHub: `main`. Стек: Python 3.12+, Django 5.2 LTS, Django REST Framework, PostgreSQL.
+
+**Важно:** текущие UI-экраны — HTML/JavaScript-прототип с локальным хранилищем. Django действительно обслуживает этот frontend и предоставляет реальное API; синхронизация графика, выплат и заметок пока **ручная по выбору пользователя**. Социальные кнопки в старом прототипе остаются тестовыми, настоящие заявки доступны через API. См. [API](API.md).
+
+## 0. Однократно установить
+
+- Git for Windows: https://git-scm.com/downloads/win
+- Python 3.12: https://www.python.org/downloads/windows/ (отметить установку в PATH)
+- PostgreSQL: https://www.postgresql.org/download/windows/ (запомнить пароль пользователя postgres)
+
+Для ноутбука с 8 ГБ ОЗУ достаточно обычного локального PostgreSQL. Docker не нужен.
+
+## 1. Скачать код
+
+Открыть **cmd** (командную строку), в каталоге для проектов выполнить:
+
+```bat
+git clone https://github.com/CrossDoomDev/my_vahta.git
+cd my_vahta
+```
+
+## 2. Подготовить виртуальное окружение
+
+```bat
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Если стоит другая подходящая версия Python, можно заменить `py -3.12` на `py -3`.
+
+## 3. Создать базу PostgreSQL
+
+В программе **SQL Shell (psql)**, подключившись администратором postgres, выполнить:
+
+```sql
+CREATE ROLE my_vahta WITH LOGIN PASSWORD 'YOUR_STRONG_LOCAL_DB_PASSWORD';
+CREATE DATABASE my_vahta OWNER my_vahta ENCODING 'UTF8';
+```
+
+Пароль заменить на свой и сохранить только локально. Для повторной попытки сначала убедиться, что роль и база ещё не созданы.
+
+## 4. Настройки Django
+
+```bat
+copy .env.example .env
+```
+
+Открыть `.env` в Блокноте. Заменить `DB_PASSWORD` на пароль созданной роли.
+
+Сгенерировать случайный секрет:
+
+```bat
+.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+Вставить результат в `SECRET_KEY`. Значение `DEBUG=1` оставить **только для локального ноутбука**, а `ALLOWED_HOSTS=127.0.0.1,localhost` — для запуска на своём компьютере.
+
+`.env` игнорируется Git. **Никогда не отправлять секреты, пароли и пользовательские дампы на GitHub.**
+
+## 5. Подготовить таблицы и запустить приложение
+
+```bat
+.venv\Scripts\python.exe backend\manage.py check
+.venv\Scripts\python.exe backend\manage.py migrate
+.venv\Scripts\python.exe backend\manage.py createsuperuser
+.venv\Scripts\python.exe backend\manage.py runserver 127.0.0.1:8000
+```
+
+Открыть:
+
+- http://127.0.0.1:8000/ — прежний интерфейс в Django;
+- http://127.0.0.1:8000/api/v1/health/ — проверка сервера и БД;
+- http://127.0.0.1:8000/admin/ — административная панель.
+
+Остановить сервер: **Ctrl+C**. Если PostgreSQL не стартовал, проверить службу Windows `postgresql-x64-...` и пароль в `.env`.
+
+## 6. Каждое последующее обновление
+
+Сначала остановить сервер Ctrl+C, затем в каталоге `my_vahta`:
+
+```bat
+git pull --ff-only
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe backend\manage.py migrate
+.venv\Scripts\python.exe backend\manage.py runserver 127.0.0.1:8000
+```
+
+При конфликте `git pull` выполнить `git status`; не использовать `reset --hard`, если есть свои изменения.
+
+## 7. Проверить реальную серверную часть
+
+В приложении открыть **Ещё → Локальный сервер → Управление аккаунтом и синхронизацией**, создать тестовый аккаунт (без реальных персональных данных), затем выбрать действие. Данные из браузера **не отправляются автоматически**:
+
+- «Сохранить локальные данные на сервер»: после подтверждения график, выплаты и заметки целиком заменяют соответствующие данные этого аккаунта на сервере;
+- «Получить данные с сервера»: после подтверждения загруженные значения заменят соответствующие локальные;
+- при конфликте версий будет отказ `409`, а не тихая перезапись данных другого устройства.
+
+Заявки между двумя учётными записями уже реализованы через REST API, но старый демонстрационный экран друзей ещё не подключён к этим методам. Пошаговые запросы — в [API.md](API.md).
+
+## 8. Запуск на телефоне в той же Wi-Fi сети (позже)
+
+Только для теста в доверенной локальной сети:
+
+1. Узнать IPv4 ноутбука: `ipconfig`.
+2. В `.env` добавить этот IP к `ALLOWED_HOSTS`.
+3. Запустить Django: `.venv\Scripts\python.exe backend\manage.py runserver 0.0.0.0:8000`.
+4. Открыть на Android `http://IP_НОУТБУКА:8000/`.
+
+Windows может запросить разрешение для частной сети. **Не открывать порт в интернет, не делать port forwarding, не использовать `runserver` в production!** Для нескольких телефонов и реальных пользователей позднее нужен HTTPS и отдельная серверная конфигурация.
+
+## 9. Обязательная проверка
+
+```bat
+.venv\Scripts\python.exe backend\manage.py makemigrations --check --dry-run
+.venv\Scripts\python.exe backend\manage.py test core
+```
+
+При изменении моделей Codex должен создать соответствующие файлы миграций и закоммитить их до `git pull` автора проекта.

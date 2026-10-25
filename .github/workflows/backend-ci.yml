@@ -1,0 +1,59 @@
+name: Django & prototype checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: my_vahta_ci
+          POSTGRES_USER: my_vahta
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U my_vahta -d my_vahta_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DEBUG: "1"
+      SECRET_KEY: "ci-only-very-long-not-a-production-secret-12345678901234567890"
+      DB_NAME: my_vahta_ci
+      DB_USER: my_vahta
+      DB_PASSWORD: ci-only-password
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      ALLOWED_HOSTS: "127.0.0.1,localhost,testserver"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Validate Django schema and configuration
+        run: |
+          python backend/manage.py check
+          python backend/manage.py makemigrations --check --dry-run
+          python backend/manage.py migrate --noinput
+      - name: Test API with PostgreSQL
+        run: python backend/manage.py test core -v 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript syntax
+        run: |
+          node --check app.js
+          node --check backend-client.js
+          node --check data/organizations.js
+          node --check data/organizations-ui.js
+      - name: Existing prototype regressions
+        run: node --test tests/*.test.cjs
