@@ -119,7 +119,7 @@ function avatarByAccountId(accountId, size="") {
 function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return seed();return migrateSocial(migratePrivacy(x))}catch{return seed()}}
 let state=window.MV_ORG.enrichState(load());
 const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
-function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch{toast("Не удалось сохранить данные. Проверьте свободное место.")}}
+function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));return true}catch{toast("Не удалось сохранить данные. Проверьте свободное место.");return false}}
 function toast(message){const e=$('toast');e.textContent=message;e.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.hidden=true,3400)}
 const button = (label,action,variant='secondary',attrs='') => `<button type="button" class="btn ${variant}" data-action="${action}" ${attrs}>${label}</button>`;
 const title = (head,sub="",right="") => `<header class="page-title"><div><h1>${html(head)}</h1>${sub?`<p>${html(sub)}</p>`:''}</div>${right}</header>`;
@@ -240,6 +240,7 @@ function friendProfilePage(){
  <article class="card friend-profile-section"><h3>${icon("friends")} О человеке</h3><p class="friend-about">${html(demo.about)}</p><dl class="friend-profile-facts"><div><dt>Организация</dt><dd>${html(f.company||"Не указана")}</dd></div><div><dt>Должность</dt><dd>${html(f.role||"Не указана")}</dd></div><div><dt>График</dt><dd>${html(demo.schedule)}</dd></div><div><dt>Регион</dt><dd>${html(demo.location)}</dd></div><div><dt>Стаж</dt><dd>${html(demo.experience)}</dd></div></dl></article>
  ${friendOrganizationSection(demo)}
  ${friendFinancialSection(demo)}
+ <article class="card friend-profile-section"><h3>${icon("building")} Опыт работы</h3>${(f.workHistory||[]).map(h=>{const o=window.MV_ORG.byId(h.organizationId);return o?`<button class="org-employment-link" type="button" data-action="open-org" data-id="${html(o.id)}"><span>${html(o.name)}</span><small>${html(h.since||"")} — ${html(h.until||"сейчас")}</small>${icon("chevron")}</button>`:""}).join("")||'<p class="friend-about">Нет записей об организациях.</p>'}</article>
  <article class="card friend-profile-section"><h3>${icon("calendar")} Текущий статус</h3><div class="friend-shift-card">${friendStatus(f)}${isVisible?`<div class="friend-shift-track"><span style="width:${Math.max(9,100-Math.min(90,Math.max(0,Number(f.days)||0)))}%"></span></div>`:""}</div>
  </article>
  <article class="card friend-profile-section"><h3>${icon("lock")} Конфиденциальность</h3><p class="friend-about">Анкета показывает только разрешённые владельцем сведения. Точные даты и календарь вахт могут быть скрыты.</p></article>
@@ -252,7 +253,7 @@ function morePage(){return `${title('Ещё','Профиль, организац
 function notesPage(){const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));return `${title('Заметки','Списки для сборов и личные записи',`<button class="icon-button" data-action="add-note" aria-label="Новая заметка">${icon('plus')}</button>`)}<label class="searchbox">${icon('search')}<input id="noteSearch" value="${html(ui.noteSearch)}" placeholder="Поиск по заметкам" aria-label="Поиск заметок"></label><div class="row" style="margin-bottom:15px">${button(icon('plus')+' Новая заметка','add-note','primary full')}${button(icon('backpack')+' Список дел','add-checklist','secondary full')}</div><div id="notesResults">${notesMarkup(list)}</div>`}
 function notesMarkup(list){return list.map(n=>`<article class="card notes-card"><div class="row between"><div><strong>${html(n.title)}</strong><p class="tiny muted">${html(n.category)} · ${dateShort(n.updated)}</p></div><button class="btn-round" data-action="edit-note" data-id="${n.id}" aria-label="Изменить заметку">${icon('edit')}</button></div>${n.text?`<p class="notes-content">${html(n.text)}</p>`:''}${n.tasks.map((t,i)=>`<label class="task-item ${t.done?'completed':''}"><input type="checkbox" data-task-note="${n.id}" data-task-index="${i}" ${t.done?'checked':''}><span>${html(t.text)}</span></label>`).join('')}${!n.text&&!n.tasks.length?'<p class="note-text">Пустая заметка</p>':''}</article>`).join('')||'<div class="empty">Заметок пока нет.</div>'}
 function ratingAverage(){const x=Object.values(state.org.ratings||{});return x.length?(x.reduce((a,b)=>a+Number(b),0)/x.length).toFixed(1):'0.0'}
-function organizationPage(){return `${title('Организация','Личная оценка работодателя',`<button class="icon-button" data-action="edit-organization" aria-label="Изменить организацию">${icon('edit')}</button>`)}<article class="card"><div class="profile-cover"></div><div class="row between" style="align-items:start"><div><h2 class="company-title">${html(state.org.name)}</h2><p class="small muted">${html(state.org.description||'')}${state.org.region?' · '+html(state.org.region):''}</p></div></div></article><section class="card"><div class="row between"><h3>Моя оценка</h3><strong class="rating-average">★ ${ratingAverage()}</strong></div><p class="note-text" style="margin:8px 0">Нажимайте звёзды для изменения оценки.</p>${Object.entries(state.org.ratings).map(([label,value])=>`<div class="rating-row"><span>${html(label)}</span><div class="stars" aria-label="Оценка: ${value} из 5">${[1,2,3,4,5].map(v=>`<button type="button" class="${v<=value?'selected':''}" data-rating-label="${html(label)}" data-rating-value="${v}" aria-label="${v} из 5" title="${v} из 5">${icon('star')}</button>`).join('')}</div></div>`).join('')}</section><article class="card"><div class="card-title"><span>Мой комментарий</span><button class="btn small ghost" data-action="edit-comment">${icon('edit')} Изменить</button></div><p class="notes-content">${html(state.org.comment||'Вы ещё не оставили комментарий.')}</p></article><article class="card"><div class="card-title">${icon('eye')} Кому это видно</div>${privacyMini('org','Название организации')}${privacyMini('rating','Моя оценка')}${privacyMini('comment','Мой отзыв')}</article>`}
+function organizationPage(){return `${title('Организация','Личная оценка работодателя',`<button class="icon-button" data-action="edit-organization" aria-label="Изменить организацию">${icon('edit')}</button>`)}<article class="card"><div class="profile-cover"></div><div class="row between" style="align-items:start"><div><h2 class="company-title">${html(state.org.name)}</h2><p class="small muted">${html(state.org.description||'')}${state.org.region?' · '+html(state.org.region):''}</p></div></div></article><section class="card"><div class="row between"><h3>Моя оценка</h3><strong class="rating-average">★ ${ratingAverage()}</strong></div><p class="note-text" style="margin:8px 0">Нажимайте звёзды для изменения оценки.</p>${Object.entries(state.org.ratings).map(([label,value])=>`<div class="rating-row"><span>${html(label)}</span><div class="stars" aria-label="Оценка: ${value} из 5">${[1,2,3,4,5].map(v=>`<button type="button" class="${v<=value?'selected':''}" data-rating-label="${html(label)}" data-rating-value="${v}" aria-label="${v} из 5" title="${v} из 5">${icon('star')}</button>`).join('')}</div></div>`).join('')}</section><article class="card"><div class="card-title"><span>Мой комментарий</span><button class="btn small ghost" data-action="edit-comment">${icon('edit')} Изменить</button></div><p class="notes-content">${html(state.org.comment||'Вы ещё не оставили комментарий.')}</p></article><div class="card compact"><div class="row between"><div><strong>Отзывы с фотографиями</strong><p class="tiny muted">Питание, проживание, техника и другие условия</p></div><button type="button" class="btn small secondary" data-action="open-my-org">Открыть ›</button></div><div class="row" style="margin-top:10px">${button(icon('edit')+' Написать подробный отзыв','review-my-org','primary full')}</div></div><article class="card"><div class="card-title">${icon('eye')} Кому это видно</div>${privacyMini('org','Название организации')}${privacyMini('rating','Моя оценка')}${privacyMini('comment','Мой отзыв')}</article>`}
 function privacyMini(key,label){return `<div class="privacy-row"><div><strong>${html(label)}</strong></div><button class="btn small secondary" data-nav="privacy">${privacyName(state.privacy[key])} ›</button></div>`}
 const privacyFields=[['status','Статус','Вахта, межвахта или отпуск'],['countdown','Обратный отсчёт','Через сколько дней домой'],['calendar','Календарь вахт','Рабочие и свободные даты'],['org','Моя организация','Название работодателя'],['rating','Оценка организации','Рейтинг по критериям'],['comment','Комментарий','Ваш личный отзыв'],['finance','Финансы','Суммы и история полученных выплат']];
 function privacyPage(){return `${title('Конфиденциальность','Вы решаете, что смогут увидеть другие')}<div class="card"><div class="card-title">${icon('shield')} Видимость данных</div>${privacyFields.map(([key,label,desc])=>`<label class="privacy-row"><div><strong>${html(label)}</strong><small>${html(desc)}</small></div><select data-privacy="${key}" aria-label="${html(label)}"><option value="all" ${state.privacy[key]==='all'?'selected':''}>Всем</option><option value="friends" ${state.privacy[key]==='friends'?'selected':''}>Друзьям</option><option value="self" ${state.privacy[key]==='self'?'selected':''}>Только мне</option></select></label>`).join('')}<div class="finance-privacy-warning">${icon('shield')} Финансовые данные по умолчанию скрыты. Открыв доступ, вы разрешите выбранной аудитории видеть суммы и даты выплат. </div></div><div class="card"><div class="card-title">${icon('eye')} Предпросмотр для друга</div>${previewForFriend()}</div>`}
@@ -303,8 +304,44 @@ function noteDialog(existing=null,type='note',date=today()){
  persist();toast('Заметка сохранена');return true
  },'Сохранить',existing?`<button class="btn danger" type="button" data-action="delete-note" data-id="${existing.id}">Удалить</button>`:'')
 }
-function editProfile(){openDialog('Мой профиль',`${inputField('Имя или псевдоним','name',state.profile.name,'text','required maxlength="70"')}${inputField('Профессия','profession',state.profile.profession,'text','maxlength="90"')}${selectField('Сфера работы','sector',[['Строительство','Строительство'],['Нефтегаз','Нефтегаз'],['Горная промышленность','Горная промышленность'],['Транспорт','Транспорт'],['Энергетика','Энергетика'],['Геология','Геология'],['Машиностроение','Машиностроение'],['Другое','Другое']],state.profile.sector)}`,form=>{const name=String(form.get('name')||'').trim();if(!name){toast('Укажите имя или псевдоним.');return false}state.profile.name=name.slice(0,70);state.profile.profession=String(form.get('profession')||'').slice(0,90);state.profile.sector=String(form.get('sector')||'Другое');persist();return true})}
-function editOrganization(){openDialog('Моя организация',`${inputField('Название организации','name',state.org.name,'text','required maxlength="140"')}${inputField('Род деятельности','description',state.org.description,'text','maxlength="200"')}${inputField('Регион / объект','region',state.org.region,'text','maxlength="140"')}`,form=>{const name=String(form.get('name')||'').trim();if(!name){toast('Укажите организацию.');return false}state.org.name=name.slice(0,140);state.org.description=String(form.get('description')||'').slice(0,200);state.org.region=String(form.get('region')||'').slice(0,140);persist();return true})}
+function editProfile(){
+ const org=state.org||{};
+ openDialog('Мой профиль',
+ `${inputField('Имя или псевдоним','name',state.profile.name,'text','required maxlength="70"')}${inputField('Профессия','profession',state.profile.profession,'text','maxlength="90"')}${selectField('Сфера работы','sector',[['Строительство','Строительство'],['Нефтегаз','Нефтегаз'],['Горная промышленность','Горная промышленность'],['Транспорт','Транспорт'],['Энергетика','Энергетика'],['Геология','Геология'],['Машиностроение','Машиностроение'],['Другое','Другое']],state.profile.sector)}${window.MV_ORG.picker(org.organizationId,org.name)}`,
+ form=>{
+  const name=String(form.get('name')||'').trim();if(!name){toast('Укажите имя или псевдоним.');return false}
+  const selection=window.MV_ORG.byId(form.get('organizationId'))||window.MV_ORG.byName(form.get('organizationName'));
+  if(!selection){toast('Выберите организацию из предложенного списка');return false}
+  state.profile.name=name.slice(0,70);state.profile.profession=String(form.get('profession')||'').slice(0,90);
+  state.profile.sector=String(form.get('sector')||'Другое');
+  state.org.organizationId=selection.id;state.org.name=selection.name;
+  persist();return true
+ });
+}
+function editOrganization(){
+ openDialog('Моя организация',
+ `${window.MV_ORG.picker(state.org.organizationId,state.org.name)}${inputField('Род деятельности','description',state.org.description,'text','maxlength="200"')}${inputField('Регион / объект','region',state.org.region,'text','maxlength="140"')}`,
+ form=>{
+  const selection=window.MV_ORG.byId(form.get('organizationId'))||window.MV_ORG.byName(form.get('organizationName'));
+  if(!selection){toast('Выберите организацию из каталога');return false}
+  state.org.organizationId=selection.id;state.org.name=selection.name;
+  state.org.description=String(form.get('description')||'').slice(0,200);
+  state.org.region=String(form.get('region')||'').slice(0,140);
+  persist();return true;
+ });
+}
+function openReviewDialog(orgId){
+ const org=window.MV_ORG.byId(orgId);if(!org){toast('Организация не найдена');return}
+ const old=state.organizationReviews.find(r=>r.authorAccountId==='me'&&r.organizationId===orgId);
+ openDialog(old?'Изменить отзыв':'Оставить отзыв',window.MV_ORG.reviewEditor(state,orgId,old),async form=>{
+   const backup=JSON.stringify(state.organizationReviews);
+   try{
+     await window.MV_ORG.saveReview(state,orgId,old,form);
+     if(!persist()){state.organizationReviews=JSON.parse(backup);return false}
+     toast('Отзыв сохранён');return true;
+   }catch(err){state.organizationReviews=JSON.parse(backup);toast(err.message||'Не удалось сохранить отзыв');return false}
+ },'Сохранить отзыв');
+}
 function editComment(){openDialog('Мой отзыв',`${textareaField('Комментарий','comment',state.org.comment,'Что нравится? Что можно улучшить?')}`,form=>{state.org.comment=String(form.get('comment')||'').trim().slice(0,1000);persist();toast('Отзыв обновлён');return true})}
 function addFriend(){openDialog('Добавить друга',`${inputField('Имя','name','','text','required maxlength="80"')}${inputField('Профессия','role','','text','maxlength="80"')}${inputField('Организация','company','','text','maxlength="80"')}`,form=>{
  const name=String(form.get('name')||'').trim();
@@ -354,7 +391,21 @@ case 'add-note':noteDialog(null,'note',el.dataset.prefillDate||today());return;
 case 'add-checklist':noteDialog(null,'checklist');return;
 case 'edit-note':noteDialog(state.notes.find(n=>n.id===el.dataset.id));return;
 case 'delete-note':if(confirm('Удалить заметку?')){state.notes=state.notes.filter(n=>n.id!==el.dataset.id);closeDialog();persist();render();toast('Заметка удалена')}return;
-case 'edit-profile':editProfile();return;
+case 'open-org':ui.orgId=el.dataset.id;nav('organizationDetail');return;
+ case 'back-orgs':nav('organizations');return;
+ case 'open-my-org':if(state.org.organizationId){ui.orgId=state.org.organizationId;nav('organizationDetail')}else editOrganization();return;
+ case 'review-my-org':if(state.org.organizationId)openReviewDialog(state.org.organizationId);else editOrganization();return;
+ case 'add-org-review':openReviewDialog(el.dataset.id);return;
+ case 'edit-review':{const r=state.organizationReviews.find(x=>x.id===el.dataset.id&&x.authorAccountId==='me');if(r)openReviewDialog(r.organizationId);return}
+ case 'more-orgs':ui.orgLimit+=20;render();return;
+ case 'choose-org':{
+   const choice=window.MV_ORG.byId(el.dataset.id);
+   if(!choice)return;
+   const target=$('orgPickerId'),input=$('orgPickerSearch');
+   if(target&&input){target.value=choice.id;input.value=choice.name;$('orgPickerOptions').innerHTML=window.MV_ORG.pickMarkup(choice.name,choice.id)}
+   return;
+ }
+ case 'edit-profile':editProfile();return;
 case 'edit-organization':editOrganization();return;
 case 'edit-comment':editComment();return;
 case 'add-friend':addFriend();return;
@@ -383,10 +434,35 @@ document.addEventListener('change',event=>{const t=event.target;if(t.dataset.pri
    if(!confirm(message)){t.value=previous;return}
  }
  state.privacy[key]=val;persist();render();toast('Настройки видимости сохранены');return;
-}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
-document.addEventListener('input',event=>{const t=event.target;if(t.id==='friendSearch'){ui.friendSearch=t.value;$('friendResults').innerHTML=friendsMarkup()}if(t.id==='noteSearch'){ui.noteSearch=t.value;const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));$('notesResults').innerHTML=notesMarkup(list)}});
+}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='reviewScope'){$('reviewSelectedFriends').hidden=t.value!=='selected';return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
+document.addEventListener('input',event=>{
+ const t=event.target;
+ if(t.id==='organizationSearch'){
+  ui.orgSearch=t.value;ui.orgLimit=20;
+  const matching=window.MV_ORG.matches(ui.orgSearch);
+  const results=$('organizationResults'),count=$('organizationResultCount');
+  if(results)results.innerHTML=matching.slice(0,20).map(o=>window.MV_ORG.orgCard(o,state)).join('')||'<div class="org-empty">Совпадений нет.</div>';
+  if(count)count.textContent='Показано '+Math.min(20,matching.length)+' из '+matching.length;
+  document.querySelector('.org-show-more')?.remove();
+  return;
+ }
+ if(t.id==='orgPickerSearch'){
+  const hidden=$('orgPickerId'),options=$('orgPickerOptions');if(hidden)hidden.value='';
+  if(options)options.innerHTML=window.MV_ORG.pickMarkup(t.value);return;
+ }
+ if(t.id==='friendSearch'){ui.friendSearch=t.value;$('friendResults').innerHTML=friendsMarkup()}
+ if(t.id==='noteSearch'){ui.noteSearch=t.value;const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));$('notesResults').innerHTML=notesMarkup(list)}
+});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='messageInput'){e.preventDefault();sendMessage()}});
-$('dialogForm').addEventListener('submit',e=>{e.preventDefault();if(!onModalSave)return;const callback=onModalSave,success=callback(new FormData(e.currentTarget));if(success!==false){closeDialog();render()}});
+$('dialogForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!onModalSave)return;
+ const submit=e.currentTarget.querySelector('button[type="submit"]'),callback=onModalSave;
+ if(submit?.disabled)return;
+ if(submit)submit.disabled=true;
+ try{const success=await callback(new FormData(e.currentTarget));if(success!==false){closeDialog();render()}}
+ catch(err){toast(err.message||'Ошибка сохранения');console.error(err)}
+ finally{if(submit)submit.disabled=false}
+});
 $('importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>3*1024*1024){toast('Файл больше 3 МБ.');return}try{const incoming=migrateSocial(migratePrivacy(validateBackup(JSON.parse(await file.text()))));if(!confirm('Импорт заменит текущие данные. Продолжить?'))return;state=window.MV_ORG.enrichState(incoming);persist();nav('home');toast('Данные восстановлены')}catch(err){toast('Ошибка импорта: '+err.message)}});
 $('appDialog').addEventListener('click',e=>{if(e.target===$('appDialog'))closeDialog()});
 window.addEventListener('focus',()=>{render()});
