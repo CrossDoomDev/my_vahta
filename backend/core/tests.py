@@ -209,3 +209,65 @@ class APITests(TestCase):
         response = self.client.put("/api/v1/sync/", bad, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Payment.objects.filter(user=self.alice).count(), 1)
+
+    def test_notification_preferences_are_scoped_and_validated(self):
+        route = "/api/v1/me/notification-preferences/"
+        defaults = self.client.get(route)
+        self.assertEqual(defaults.status_code, 200)
+        self.assertTrue(defaults.data["message"])
+        self.assertEqual(defaults.data["shift_days"], 3)
+
+        change = self.client.patch(route, {"message": False, "shift_days": 7}, format="json")
+        self.assertEqual(change.status_code, 200, change.data)
+        self.assertFalse(change.data["message"])
+        self.assertEqual(change.data["shift_days"], 7)
+        for invalid in ({"message": "false"}, {"shift_days": -1},
+                        {"holiday_days": True}, {"secret": True}):
+            self.assertEqual(self.client.patch(route, invalid, format="json").status_code, 400)
+        self.assertFalse(self.client.get(route).data["message"])
+        self.login(self.bob)
+        self.assertTrue(self.client.get(route).data["message"])
+        self.client.credentials()
+        self.assertEqual(self.client.get(route).status_code, 401)
+
+    def test_muted_categories_do_not_block_friend_requests_and_messages(self):
+        bob = Profile.objects.get(user=self.bob)
+        self.login(self.bob)
+        changed = self.client.patch("/api/v1/me/notification-preferences/", {
+            "friend_request": False, "message": False
+        }, format="json")
+        self.assertEqual(changed.status_code, 200)
+        self.login(self.alice)
+        sent = self.client.post("/api/v1/friend-requests/", {"recipient_id": str(bob.id)}, format="json")
+        self.assertEqual(sent.status_code, 201)
+        self.login(self.bob)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 0)
+        self.assertEqual(len(self.client.get("/api/v1/friend-requests/").data["results"]), 1)
+        self.assertEqual(self.client.post("/api/v1/friend-requests/" + str(sent.data["id"]) + "/accept/").status_code, 200)
+        self.login(self.alice)
+        self.assertEqual(self.client.post("/api/v1/messages/", {
+            "recipient_id": str(bob.id), "text": "Привет"
+        }, format="json").status_code, 201)
+        self.login(self.bob)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 0)
+        self.assertEqual(self.client.get("/api/v1/notifications/").data["count"], 0)
+        self.assertEqual(len(self.client.get("/api/v1/messages/?peer=" +
+                             str(Profile.objects.get(user=self.alice).id)).data["results"]), 1)
+
+    def test_notifications_master_switch_and_payment_category(self):
+        route = "/api/v1/me/notification-preferences/"
+        self.assertEqual(self.client.patch(route, {"payments": False}, format="json").status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/payments/", {
+            "date": "2026-10-03", "type": "salary", "amount": 12500
+        }, format="json").status_code, 201)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 0)
+        self.assertEqual(self.client.patch(route, {"payments": True}, format="json").status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/payments/", {
+            "date": "2026-10-04", "type": "advance", "amount": 3000
+        }, format="json").status_code, 201)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 1)
+        self.assertEqual(self.client.patch(route, {"enabled": False}, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 0)
+        self.assertEqual(self.client.get("/api/v1/notifications/").data["count"], 0)
+        self.assertEqual(self.client.patch(route, {"enabled": True}, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 1)
