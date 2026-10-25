@@ -15,6 +15,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from .models import FriendRequest, Friendship, Message, Note, Notification, Payment, Privacy, Profile, Shift
+from .notification_settings import CATEGORIES, DEFAULTS, REMINDER_DAYS, normalize_preferences, notifications_allowed
 from .serializers import (
     AccountSerializer, MessageSerializer, NoteSerializer, NotificationSerializer,
     PaymentSerializer, PrivacySerializer, RegisterSerializer, RequestSerializer, ShiftSerializer,
@@ -149,6 +150,32 @@ class PrivacyView(APIView):
         return Response(serializer.data)
 
 
+class NotificationPreferencesView(APIView):
+    """Read and update only the authenticated account's preferences."""
+
+    def get(self, request):
+        return Response(normalize_preferences(get_profile(request.user).notification_preferences))
+
+    def patch(self, request):
+        if not isinstance(request.data, dict):
+            raise ValidationError({"detail": "Ожидается объект настроек."})
+        unknown = set(request.data) - set(DEFAULTS)
+        if unknown:
+            raise ValidationError({"detail": "Неизвестные настройки: " + ", ".join(sorted(unknown))})
+        for key, value in request.data.items():
+            if key in REMINDER_DAYS:
+                if type(value) is not int or value not in REMINDER_DAYS[key]:
+                    raise ValidationError({key: "Выберите допустимое число дней."})
+            elif type(value) is not bool:
+                raise ValidationError({key: "Укажите true или false."})
+        profile = get_profile(request.user)
+        profile.notification_preferences = {
+            **normalize_preferences(profile.notification_preferences), **request.data
+        }
+        profile.save(update_fields=["notification_preferences"])
+        return Response(profile.notification_preferences)
+
+
 class ShiftView(APIView):
     def get(self, request):
         return Response(ShiftSerializer(get_shift(request.user)).data)
@@ -203,6 +230,14 @@ class OwnedViewSet(viewsets.ModelViewSet):
 class PaymentViewSet(OwnedViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        if notifications_allowed(self.request.user, "payments"):
+            Notification.objects.create(
+                user=self.request.user, kind="payments", title="Записана выплата",
+                body="В историю финансов добавлена новая выплата.",
+            )
 
 
 class NoteViewSet(OwnedViewSet):
@@ -275,10 +310,11 @@ class FriendRequestViewSet(viewsets.GenericViewSet):
         ).exists():
             return Response({"detail": "Заявка уже ожидает ответа."}, status=409)
         item = FriendRequest.objects.create(sender=sender, recipient=recipient)
-        Notification.objects.create(
-            user=recipient, kind="friend_request", title="Новая заявка в друзья",
-            body=get_profile(sender).display_name + " хочет добавить вас в друзья.", request=item,
-        )
+        if notifications_allowed(recipient, "friend_request"):
+            Notification.objects.create(
+                user=recipient, kind="friend_request", title="Новая заявка в друзья",
+                body=get_profile(sender).display_name + " хочет добавить вас в друзья.", request=item,
+            )
         return Response(self.serializer_class(item).data, status=201)
 
     @transaction.atomic
@@ -298,10 +334,11 @@ class FriendRequestViewSet(viewsets.GenericViewSet):
         if decision == "accepted":
             low, high = sorted((item.sender_id, item.recipient_id))
             Friendship.objects.get_or_create(user_low_id=low, user_high_id=high)
-            Notification.objects.create(
-                user=item.sender, kind="friend_accepted", title="Заявка принята",
-                body=get_profile(item.recipient).display_name + " теперь в ваших друзьях.", request=item,
-            )
+            if notifications_allowed(item.sender, "friend_accepted"):
+                Notification.objects.create(
+                    user=item.sender, kind="friend_accepted", title="Заявка принята",
+                    body=get_profile(item.recipient).display_name + " теперь в ваших друзьях.", request=item,
+                )
         return Response(self.serializer_class(item).data)
 
     @action(detail=True, methods=["post"])
@@ -321,7 +358,11 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        preferences = normalize_preferences(get_profile(self.request.user).notification_preferences)
+        base = Notification.objects.filter(user=self.request.user)
+        if not preferences["enabled"]:
+            return base.none()
+        return base.filter(kind__in=[kind for kind in CATEGORIES if preferences[kind]])
 
     @action(detail=True, methods=["post"])
     def read(self, request, pk=None):
@@ -362,7 +403,8 @@ class MessagesView(APIView):
         if not isinstance(text, str) or not (1 <= len(text.strip()) <= 1000):
             raise ValidationError({"text": "Введите сообщение длиной до 1000 символов."})
         message = Message.objects.create(sender=request.user, recipient=recipient, text=text.strip())
-        Notification.objects.create(user=recipient, kind="message", title="Новое сообщение", body="Вам пришло сообщение.")
+        if notifications_allowed(recipient, "message"):
+            Notification.objects.create(user=recipient, kind="message", title="Новое сообщение", body="Вам пришло сообщение.")
         return Response(MessageSerializer(message).data, status=201)
 
 
