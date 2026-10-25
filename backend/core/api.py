@@ -1,7 +1,7 @@
 """Authenticated, ownership-checked API. No demo friendship is trusted by server."""
 from django.contrib.auth import authenticate, get_user_model
 from django.db import IntegrityError, transaction, connection
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
@@ -148,6 +148,20 @@ class ShiftView(APIView):
         serializer.save()
         bump(request.user)
         return Response(serializer.data)
+
+
+class ShiftSummaryView(APIView):
+    def get(self, request):
+        shift = get_shift(request.user)
+        query = Payment.objects.filter(user=request.user, date__gte=shift.start, date__lte=shift.end)
+        totals = query.aggregate(amount=Sum("amount"))
+        return Response({
+            "start": shift.start,
+            "end": shift.end,
+            "payment_count": query.count(),
+            "received_amount": totals["amount"] or 0,
+            "basis": "recorded_payments",
+        })
 
 
 class OwnedViewSet(viewsets.ModelViewSet):
