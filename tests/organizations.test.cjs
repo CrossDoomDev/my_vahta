@@ -12,7 +12,7 @@ const end = appScript.indexOf("document.addEventListener('click'");
 assert.ok(end > 0, "No app event boundary");
 const harness = appScript.slice(0, end)
   .replace('"use strict";\n(() => {','"use strict";\nreturn (() => {')
-  + "return {state,ui,seed,friendProfilePage,organizationPage,homePage,morePage,openReviewDialog,getModal:()=>onModalSave};})();";
+  + "return {state,ui,seed,friendProfilePage,organizationPage,homePage,morePage,privacyPage,openReviewDialog,getModal:()=>onModalSave};})();";
 
 function boot(snapshot) {
   const nodes = new Map();
@@ -80,7 +80,8 @@ test("Review exposes seven separate star, comment and photo fields",()=>{
   assert.ok(markup.includes("Питание"));
   assert.ok(markup.includes("Бытовые условия"));
   assert.ok(markup.includes("Техника и безопасность"));
-  assert.ok(markup.includes("Избранные друзья"));
+  assert.ok(!markup.includes('name="reviewScope"'), "Editor must not set review confidentiality");
+  assert.ok(app.privacyPage().includes("Избранным друзьям"), "Privacy is configured in More → Privacy");
 });
 
 test("Demo reviews in company catalogue and friends' profiles link to same records",()=>{
