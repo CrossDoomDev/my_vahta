@@ -218,7 +218,7 @@
   function starsInput(criterion,rating){
     const current=Math.max(0,Math.min(5,Number(rating)||0));
     return `<div class="org-rating-input" role="radiogroup" aria-label="${esc(criterion.label)}">
-      ${[1,2,3,4,5].map(score=>`<label class="org-star-choice"><input type="radio" name="reviewRate_${criterion.id}" value="${score}" ${current===score?"checked":""} required><span title="${score} из 5">★</span></label>`).join("")}
+      ${[5,4,3,2,1].map(score=>`<label class="org-star-choice"><input type="radio" name="reviewRate_${criterion.id}" value="${score}" ${current===score?"checked":""} required><span title="${score} из 5">★</span></label>`).join("")}
     </div>`;
   }
   function reviewEditor(state,orgId,old){
