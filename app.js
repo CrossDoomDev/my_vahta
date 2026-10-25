@@ -47,7 +47,7 @@ function seed(){const now=today(),old=shiftDate(now,-11),end=shiftDate(now,18),p
    f3:{id:"f3",name:"Мария Соколова",role:"Геолог",company:"Георазведка",avatarUrl:"assets/avatar-maria.svg",letter:"М",skin:"alt2"},
    f4:{id:"f4",name:"Сергей Кузнецов",role:"Механик",company:"Северная база",avatarUrl:"assets/avatar-sergey.svg",letter:"С",skin:"alt3"}
  },
- friends:[{accountId:"f1",state:"shift",days:12},{accountId:"f2",state:"rest",days:8},{accountId:"f3",state:"vacation",days:5},{accountId:"f4",state:"shift",days:27}],
+ friends:[{accountId:"f1",state:"shift",days:12,online:true},{accountId:"f2",state:"rest",days:8,online:false},{accountId:"f3",state:"vacation",days:5,online:true},{accountId:"f4",state:"shift",days:27,online:false}],
  friendRequests:[],
  chats:[{id:"chat-f1",participantAccountId:"f1",unread:2,messages:[{id:id(),out:false,text:"Привет! Как там на объекте?",time:"09:12"},{id:id(),out:false,text:"Всё нормально? Когда домой?",time:"09:24"}]},{id:"chat-f2",participantAccountId:"f2",unread:1,messages:[{id:id(),out:false,text:"Увидимся на межвахте!",time:"Вчера"}]},{id:"chat-f3",participantAccountId:"f3",unread:0,messages:[{id:id(),out:true,text:"Привет! Как отпуск?",time:"Вчера"},{id:id(),out:false,text:"Отлично, отдыхаю 😊",time:"Вчера"}]}],
  notifications:[{id:id(),title:"Вахта скоро закончится",body:"Осталось менее 3 недель до возвращения домой.",date:now,read:false,kind:"shift"},{id:id(),title:"Профессиональные праздники",body:"В календаре появились праздники разных профессий.",date:now,read:false,kind:"holiday"},{id:id(),title:"Новые сообщения",body:"У вас есть непрочитанные сообщения.",date:now,read:false,kind:"message"}]
@@ -99,7 +99,7 @@ function migrateSocial(x) {
     const accountId = String(raw.accountId || raw.id || "");
     if (!accountId || linked.has(accountId)) continue;
     adoptAccount(raw, accountId);
-    links.push({accountId, state:["shift","rest","vacation","offline"].includes(raw.state)?raw.state:"offline", days:Math.max(0,Math.min(9999,Number(raw.days)||0))});
+    links.push({accountId, state:["shift","rest","vacation","offline"].includes(raw.state)?raw.state:"offline", days:Math.max(0,Math.min(9999,Number(raw.days)||0)), online:typeof raw.online==="boolean"?raw.online:(accountId==="f1"||accountId==="f3")});
     linked.add(accountId);
   }
   x.friends = links;
@@ -123,7 +123,7 @@ function accountById(accountId) {return state.accounts?.[String(accountId)] || n
 function friendByAccountId(accountId) {
  const link = state.friends.find(f=>f.accountId===accountId);
  const account = accountById(accountId);
- return link && account ? {...account,company:window.MV_ORG?.byId(account.currentOrganizationId)?.name||account.company,state:link.state,days:link.days} : null;
+ return link && account ? {...account,company:window.MV_ORG?.byId(account.currentOrganizationId)?.name||account.company,state:link.state,days:link.days,online:link.online===true} : null;
 }
 function avatarByAccountId(accountId, size="") {
  const account=accountById(accountId);
@@ -273,7 +273,7 @@ function finishFriendRequest(requestId,decision){
  if(r.direction==="outgoing"&&(!r.demo||!["accepted","cancelled"].includes(decision)))return;
  r.status=decision;
  if(decision==="accepted"){
-  if(!friendByAccountId(r.accountId))state.friends.push({accountId:r.accountId,state:"offline",days:0});
+  if(!friendByAccountId(r.accountId))state.friends.push({accountId:r.accountId,state:"offline",days:0,online:false});
   const person=accountById(r.accountId);
   addFriendNotice("Добавлен друг: демонстрация",person.name+" теперь в списке друзей (локальный тест).","friend_accepted",r);
  }
@@ -350,10 +350,10 @@ function friendsPage(){
 }
 function friendsMarkup(){
  const q=ui.friendSearch.trim().toLocaleLowerCase("ru");
- const list=state.friends.map(link=>friendByAccountId(link.accountId)).filter(f=>f&&(ui.friendFilter==="all"||(ui.friendFilter==="online"?f.state!=="offline":f.state===ui.friendFilter))&&[f.name,f.role,f.company].some(x=>String(x).toLocaleLowerCase("ru").includes(q)));
+ const list=state.friends.map(link=>friendByAccountId(link.accountId)).filter(f=>f&&(ui.friendFilter==="all"||(ui.friendFilter==="online"?f.online===true:f.state===ui.friendFilter))&&[f.name,f.role,f.company].some(x=>String(x).toLocaleLowerCase("ru").includes(q)));
   if(ui.friendSort==="name")list.sort((a,b)=>a.name.localeCompare(b.name,"ru",{sensitivity:"base"}));
  return list.map(f=>`<button class="person-row friend-list-row" type="button" data-action="friend-detail" data-id="${html(f.id)}" aria-label="Открыть анкету: ${html(f.name)}">
- <span class="friend-picture">${friendAvatar(f)}<i class="friend-presence ${f.state==="offline"?"away":"available"}"></i></span>
+ <span class="friend-picture">${friendAvatar(f)}<i class="friend-presence ${f.online===true?"available":"away"}"></i></span>
  <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small>${accountById(f.id)?.isDemo?'<span class="friend-demo-pill">Демо</span>':''}</span>
  ${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
 }
