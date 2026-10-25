@@ -416,7 +416,20 @@ function shiftNotificationDetails(n){
  const body=p.upcoming?`Начало ${dateFull(p.start)}. До начала ${p.untilStart} ${plural(p.untilStart,['день','дня','дней'])}.`:p.completed?`Вахта завершилась ${dateFull(p.end)}.`:`Окончание ${dateFull(p.end)}. Осталось ${p.remaining} ${plural(p.remaining,['день','дня','дней'])}.`;
  return {...n,title,body};
 }
-function notificationsPage(){return `${title('Уведомления','Новости по вашему графику и приложению',button('Прочитать все','read-all','secondary small'))}<div class="card compact">${state.notifications.length?state.notifications.map(shiftNotificationDetails).map(n=>`<button type="button" class="chat-row" data-action="read-notification" data-id="${n.id}">${tile(n.kind==='message'?'chat':n.kind==='holiday'?'holiday':'bell',n.read?'blue':'orange')}<div class="grow"><strong class="friend-name">${html(n.title)}</strong><small style="white-space:normal">${html(n.body)}</small><small>${dateShort(n.date)}</small></div>${!n.read?'<span class="list-count">1</span>':''}</button>`).join(''):'<div class="empty">Пока уведомлений нет.</div>'}</div>`}
+
+function notificationsPage(){
+ const records=state.notifications.map(n=>{
+  const request=n.kind==="friend_request"?state.friendRequests.find(r=>r.id===n.requestId&&r.status==="pending"&&r.direction==="incoming"):null;
+  if(request){
+   return `<article class="card friend-notification"><div class="friend-notification-title">${icon('friends')} <strong>${html(n.title)}</strong><span class="friend-demo-pill">Демо</span></div>
+    <p class="small muted">${html(n.body)}</p>
+    <div class="friend-request-actions"><button type="button" class="btn primary small" data-action="accept-friend-request" data-id="${html(request.id)}">Принять</button><button type="button" class="btn secondary small" data-action="decline-friend-request" data-id="${html(request.id)}">Отклонить</button></div>
+   </article>`;
+  }
+  return `<button type="button" class="chat-row" data-action="read-notification" data-id="${html(n.id)}">${tile(n.kind==='message'?'chat':n.kind==='holiday'?'holiday':n.kind.startsWith('friend_')?'friends':'bell',n.read?'blue':'orange')}<div class="grow"><strong class="friend-name">${html(n.title)}</strong><small style="white-space:normal">${html(n.body)}</small><small>${dateShort(n.date)}</small></div>${!n.read?'<span class="list-count">1</span>':''}</button>`;
+ }).join('');
+ return `${title('Уведомления','События, сообщения и заявки в друзья',button('Прочитать все','read-all','secondary small'))}<div class="card compact">${records||'<div class="empty">Пока уведомлений нет.</div>'}</div>`;
+}
 function settingsPage(){return `${title('Настройки и данные','Резервные копии и управление данными')}<div class="card"><div class="card-title">${icon('shield')} Резервное копирование</div><div class="row" style="margin-top:13px">${button(icon('download')+' Экспорт JSON','export','primary full')}${button(icon('upload')+' Импорт','import','secondary full')}</div></div><div class="card"><div class="card-title">Управление данными</div><div style="margin-top:14px">${button('Сбросить данные','reset','danger full')}</div></div>`}
 let onModalSave=null;
 let editingPayment=null;
@@ -506,15 +519,34 @@ function openReviewDialog(orgId){
  },'Сохранить отзыв');
 }
 function editComment(){openDialog('Мой отзыв',`${textareaField('Комментарий','comment',state.org.comment,'Что нравится? Что можно улучшить?')}`,form=>{state.org.comment=String(form.get('comment')||'').trim().slice(0,1000);persist();toast('Отзыв обновлён');return true})}
-function addFriend(){openDialog('Добавить друга',`${inputField('Имя','name','','text','required maxlength="80"')}${inputField('Профессия','role','','text','maxlength="80"')}${inputField('Организация','company','','text','maxlength="80"')}`,form=>{
- const name=String(form.get('name')||'').trim();
- if(!name){toast('Введите имя.');return false}
- // Temporary offline account ID; server will issue the authoritative immutable account ID.
- const accountId="local-"+id();
- state.accounts[accountId]={id:accountId,name:name.slice(0,80),role:String(form.get('role')||'').slice(0,80),company:String(form.get('company')||'').slice(0,80),avatarUrl:"",letter:name.slice(0,1).toUpperCase(),skin:"alt3"};
- state.friends.push({accountId,state:'offline',days:0});
- persist();toast('Друг добавлен');return true;
-},'Добавить')}
+
+async function shareFriendInvite(){
+ const url=location.origin+location.pathname;
+ const details={title:"Моя вахта",text:"Посмотри прототип приложения «Моя вахта». Персональные приглашения появятся после запуска сервера.",url};
+ try{
+  if(navigator.share){await navigator.share(details);return}
+  if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);toast("Ссылка на прототип скопирована");return}
+  openDialog("Приглашение",`<p class="note-text">Это ссылка на прототип, а не персональная заявка в друзья. После запуска сервера появятся персональные ссылки и QR-коды.</p>${inputField('Ссылка','link',url,'text','readonly')}`);
+ }catch(error){if(error?.name!=="AbortError")toast("Не удалось поделиться ссылкой")}
+}
+async function pickFriendContact(){
+ let selection=null;
+ try{
+  // Optional Android bridge for Codex. Browser fallback is the user-invoked Contact Picker API.
+  if(window.MVNativeContacts?.pickSingle)selection=await window.MVNativeContacts.pickSingle();
+  else if(navigator.contacts?.select){
+    const items=await navigator.contacts.select(["name","tel"],{multiple:false});
+    selection=items?.[0]||null;
+  }else{
+    openDialog("Контакты",'<p class="note-text">Системный выбор контактов недоступен в этом браузере. В будущей Android-версии откроется телефонная книга. Никакие номера не загружаются на сервер.</p>');
+    return;
+  }
+  if(!selection)return;
+  const name=String(Array.isArray(selection.name)?selection.name[0]:selection.name||"Выбранный контакт").slice(0,100);
+  // Never store a phone number in localStorage, account records or logs.
+  openDialog("Контакт выбран",`<p class="note-text">Выбран: <strong>${html(name)}</strong>.</p><p class="note-text" style="margin-top:9px">Сейчас нет сервера для проверки регистрации этого человека. Можно отправить ему ссылку на прототип. Номер телефона никуда не передаётся.</p>`,()=>{shareFriendInvite();return true},"Поделиться ссылкой");
+ }catch(error){if(error?.name!=="AbortError")toast("Не удалось открыть контакты")}
+}
 function friendDetail(accountId){if(!friendByAccountId(accountId))return;ui.friendId=accountId;nav("friendProfile")}
 function startChat(){
  if(!state.friends.length){toast('Сначала добавьте друга.');return}
@@ -571,7 +603,15 @@ case 'open-org':ui.orgId=el.dataset.id;nav('organizationDetail');return;
  case 'edit-profile':editProfile();return;
 case 'edit-organization':editOrganization();return;
 case 'edit-comment':editComment();return;
-case 'add-friend':addFriend();return;
+case 'add-friend':nav('friendDiscovery');return;
+case 'send-demo-request':sendDemoFriendRequest(el.dataset.id);return;
+case 'demo-incoming-request':demoIncomingRequest();nav('friends');return;
+case 'accept-friend-request':finishFriendRequest(el.dataset.id,'accepted');return;
+case 'decline-friend-request':finishFriendRequest(el.dataset.id,'declined');return;
+case 'cancel-friend-request':finishFriendRequest(el.dataset.id,'cancelled');return;
+case 'demo-accept-sent':finishFriendRequest(el.dataset.id,'accepted');return;
+case 'find-contacts':pickFriendContact();return;
+case 'invite-friend':shareFriendInvite();return;
 case 'friend-detail':friendDetail(el.dataset.id);return;
 case 'back-to-friends':nav('friends');return;
 case 'chat-friend':{const fid=el.dataset.id;if($('appDialog').open)closeDialog();openChat(fid);return}
@@ -580,7 +620,7 @@ case 'open-chat':openChat(el.dataset.id);return;
 case 'back-to-messages':nav('messages');return;
 case 'send-message':sendMessage();return;
 case 'read-all':state.notifications.forEach(n=>n.read=true);persist();render();return;
-case 'read-notification':{const n=state.notifications.find(x=>x.id===el.dataset.id);if(n)n.read=true;persist();render();return}
+case 'read-notification':{const n=state.notifications.find(x=>x.id===el.dataset.id);if(n)n.read=true;persist();if(n?.kind==='friend_request'||n?.kind==='friend_accepted')nav('friends');else render();return}
 case 'export':dataExport();return;
 case 'import':$('importFile').click();return;
 case 'reset':if(confirm('Удалить все данные, включая выплаты, заметки и сообщения? Перед сбросом можно создать резервную копию.')){state=window.MV_ORG.enrichState(seed());persist();ui.view='home';render();toast('Данные сброшены')}return;
@@ -636,6 +676,7 @@ document.addEventListener('input',event=>{
   if(options)options.innerHTML=window.MV_ORG.pickMarkup(t.value);return;
  }
  if(t.id==='friendSearch'){ui.friendSearch=t.value;$('friendResults').innerHTML=friendsMarkup()}
+ if(t.id==='friendDiscoverySearch'){ui.friendDiscoverySearch=t.value;$('friendDiscoveryResults').innerHTML=friendDiscoveryResults();return}
  if(t.id==='noteSearch'){ui.noteSearch=t.value;const list=state.notes.filter(n=>[n.title,n.category,n.text].join(' ').toLocaleLowerCase('ru').includes(ui.noteSearch.toLocaleLowerCase('ru')));$('notesResults').innerHTML=notesMarkup(list)}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='messageInput'){e.preventDefault();sendMessage()}});
