@@ -1,6 +1,7 @@
 """Authenticated, ownership-checked API. No demo friendship is trusted by server."""
 from django.contrib.auth import authenticate, get_user_model
 from uuid import UUID
+from datetime import timedelta
 from django.db import IntegrityError, transaction, connection
 from django.db.models import F, Q, Sum
 from django.shortcuts import get_object_or_404
@@ -121,6 +122,7 @@ class LoginView(APIView):
 class LogoutView(APIView):
     def post(self, request):
         Token.objects.filter(user=request.user).delete()
+        Profile.objects.filter(user=request.user).update(last_seen_at=None)
         return Response(status=204)
 
 
@@ -133,6 +135,14 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class PresenceView(APIView):
+    """Keep a short-lived, authenticated online-presence timestamp."""
+
+    def post(self, request):
+        Profile.objects.filter(user=request.user).update(last_seen_at=timezone.now())
+        return Response({"ok": True})
 
 
 class PrivacyView(APIView):
@@ -262,7 +272,28 @@ class FriendsView(APIView):
     def get(self, request):
         links = Friendship.objects.filter(Q(user_low=request.user) | Q(user_high=request.user)).select_related("user_low", "user_high")
         people = [item.user_high if item.user_low_id == request.user.id else item.user_low for item in links]
-        return Response({"results": [account_card(person) for person in people]})
+        current_day = timezone.localdate()
+        online_since = timezone.now() - timedelta(minutes=3)
+        results = []
+        for person in people:
+            card = account_card(person)
+            privacy, _ = Privacy.objects.get_or_create(user=person)
+            visible = privacy.status in ("friends", "all")
+            if visible:
+                shift = Shift.objects.filter(user=person).first()
+                card["work_status"] = (
+                    "vacation" if shift and shift.vacation
+                    else "shift" if shift and shift.start <= current_day <= shift.end
+                    else "rest" if shift
+                    else None
+                )
+                profile = get_profile(person)
+                card["is_online"] = bool(profile.last_seen_at and profile.last_seen_at >= online_since)
+            else:
+                card["work_status"] = None
+                card["is_online"] = False
+            results.append(card)
+        return Response({"results": results})
 
 
 class FriendRemoveView(APIView):
