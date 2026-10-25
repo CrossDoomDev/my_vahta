@@ -114,7 +114,7 @@
   if(!state.connected)return;
   const loadId=++socialLoadId;
   if(view==="friends")loadFriends(loadId);
-  else if(view==="notifications")loadNotifications(loadId);
+  else if(view==="notificationInbox")loadNotifications(loadId);
   else if(view==="messages")loadMessages(loadId);
   loadCounts();
  }
