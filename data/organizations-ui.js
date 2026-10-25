@@ -106,7 +106,7 @@
           id:"sample-review-"+i,organizationId,authorAccountId:accountId,
           createdAt:"2026-10-"+String(10+i).padStart(2,"0"),
           scope:i%5===3?"friends":"all",
-          allowedAccountIds:[],worksite:"",
+          allowedAccountIds:[],worksite:"",isSample:true,
           sections:sectionObject(scores,details),overall:""
         });
       });
@@ -171,7 +171,7 @@
     const who=r.anonymous?"Участник сообщества":(author?.name||"Участник сообщества");
     return `<article class="org-review-card">
       <div class="org-review-header">
-        <div><strong>${esc(who)}</strong><small>${esc(r.createdAt||"")}${friend?" · ваш друг":""}</small></div>
+        <div><strong>${esc(who)}</strong><small>${esc(r.createdAt||"")}${friend?" · ваш друг":""}${r.isSample?" · пример":""}</small></div>
         <strong class="org-review-score">★ ${esc(avgReview(r)||"—")}</strong>
       </div>
       ${r.worksite?`<p class="org-worksite">Объект: ${esc(r.worksite)}</p>`:""}
