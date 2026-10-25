@@ -1,5 +1,6 @@
 """Authenticated, ownership-checked API. No demo friendship is trusted by server."""
 from django.contrib.auth import authenticate, get_user_model
+from uuid import UUID
 from django.db import IntegrityError, transaction, connection
 from django.db.models import F, Q, Sum
 from django.shortcuts import get_object_or_404
@@ -32,6 +33,18 @@ class RegisterThrottle(AnonRateThrottle):
 
 class SocialThrottle(UserRateThrottle):
     rate = "12/hour"
+
+
+class SocialSearchThrottle(UserRateThrottle):
+    rate = "60/min"
+
+
+def resolve_account(value):
+    try:
+        account_id = UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        raise ValidationError({"account_id": "Неверный формат ID аккаунта."})
+    return get_object_or_404(Profile, id=account_id).user
 
 
 @api_view(["GET"])
@@ -198,7 +211,7 @@ class NoteViewSet(OwnedViewSet):
 
 
 class UserSearchView(APIView):
-    throttle_classes = [SocialThrottle]
+    throttle_classes = [SocialSearchThrottle]
 
     def get(self, request):
         q = request.query_params.get("q", "").strip()
@@ -228,7 +241,12 @@ class FriendRemoveView(APIView):
 
 class FriendRequestViewSet(viewsets.GenericViewSet):
     serializer_class = RequestSerializer
-    throttle_classes = [SocialThrottle]
+
+    def get_throttles(self):
+        # Rate-limit new requests, not checking or accepting incoming invitations.
+        if getattr(self, "action", None) == "create":
+            return [SocialThrottle()]
+        return super().get_throttles()
 
     def get_queryset(self):
         return FriendRequest.objects.select_related(
@@ -243,7 +261,7 @@ class FriendRequestViewSet(viewsets.GenericViewSet):
         incoming_id = request.data.get("recipient_id")
         if not incoming_id:
             raise ValidationError({"recipient_id": "Укажите ID аккаунта."})
-        recipient = get_object_or_404(Profile, id=incoming_id).user
+        recipient = resolve_account(incoming_id)
         sender = request.user
         if sender.pk == recipient.pk:
             raise ValidationError({"detail": "Нельзя добавить самого себя."})
@@ -327,7 +345,7 @@ class MessagesView(APIView):
         peer_id = request.query_params.get("peer")
         if not peer_id:
             return Response({"results": []})
-        peer = get_object_or_404(Profile, id=peer_id).user
+        peer = resolve_account(peer_id)
         if not is_friend(request.user, peer):
             return Response({"detail": "Диалог доступен только друзьям."}, status=403)
         items = Message.objects.filter(
@@ -337,7 +355,7 @@ class MessagesView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        recipient = get_object_or_404(Profile, id=request.data.get("recipient_id")).user
+        recipient = resolve_account(request.data.get("recipient_id"))
         if not is_friend(request.user, recipient):
             return Response({"detail": "Сообщения доступны только друзьям."}, status=403)
         text = request.data.get("text")

@@ -186,6 +186,20 @@ class APITests(TestCase):
         self.login(self.bob)
         self.assertEqual(self.client.get("/api/v1/sync/").data["payments"], [])
 
+    def test_weak_password_rejected_cleanly(self):
+        self.client.credentials()
+        res = self.client.post("/api/v1/auth/register/", {
+            "username": "weakworker", "password": "1234", "display_name": "User"
+        }, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("password", res.data)
+
+    def test_invalid_account_id_is_a_client_error(self):
+        res = self.client.post("/api/v1/friend-requests/", {"recipient_id": "fake-user"}, format="json")
+        self.assertEqual(res.status_code, 400)
+        res = self.client.post("/api/v1/messages/", {"recipient_id": "fake-user", "text": "Hello"}, format="json")
+        self.assertEqual(res.status_code, 400)
+
     def test_malformed_sync_does_not_erase_previous_records(self):
         Payment.objects.create(user=self.alice, date=date(2026, 10, 15), type="salary", amount=12345)
         bad = {"revision": 0, "shift": {"start": "2026-10-01", "end": "2026-10-31", "vacation": False},
