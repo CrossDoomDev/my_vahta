@@ -120,7 +120,7 @@ function avatarByAccountId(accountId, size="") {
  const hash=[...String(accountId)].reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
  return `<span class="avatar ${skins[hash%skins.length]} ${html(size)}">${html(account?.letter || name.slice(0,1))}</span>`;
 }
-function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return seed();return migrateSocial(migratePrivacy(x))}catch{return seed()}}
+function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return migrateSocial(migratePrivacy(seed()));return migrateSocial(migratePrivacy(x))}catch{return migrateSocial(migratePrivacy(seed()))}}
 let state=window.MV_ORG.enrichState(load());
 const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",friendDiscoverySearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));return true}catch{toast("Не удалось сохранить данные. Проверьте свободное место.");return false}}
