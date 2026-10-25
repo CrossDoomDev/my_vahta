@@ -20,6 +20,7 @@ class Profile(models.Model):
     discoverable = models.BooleanField(default=False)
     sync_revision = models.PositiveIntegerField(default=0)
     notification_preferences = models.JSONField(default=dict, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
