@@ -299,8 +299,8 @@ function friendsMarkup(){
  const list=state.friends.map(link=>friendByAccountId(link.accountId)).filter(f=>f&&(ui.friendFilter==="all"||f.state===ui.friendFilter)&&[f.name,f.role,f.company].some(x=>String(x).toLocaleLowerCase("ru").includes(q)));
  return list.map(f=>`<button class="person-row friend-list-row" type="button" data-action="friend-detail" data-id="${html(f.id)}" aria-label="Открыть анкету: ${html(f.name)}">
  <span class="friend-picture">${friendAvatar(f)}<i class="friend-presence ${f.state==="offline"?"away":"available"}"></i></span>
- <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small></span>
- ${accountById(f.id)?.isDemo?'<span class="friend-demo-pill">Демо</span>':''}${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
+ <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small>${accountById(f.id)?.isDemo?'<span class="friend-demo-pill">Демо</span>':''}</span>
+ ${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
 }
 function friendOrganizationSection(demo){
  const ratings=demo.ratings;
@@ -426,7 +426,7 @@ function notificationsPage(){
     <div class="friend-request-actions"><button type="button" class="btn primary small" data-action="accept-friend-request" data-id="${html(request.id)}">Принять</button><button type="button" class="btn secondary small" data-action="decline-friend-request" data-id="${html(request.id)}">Отклонить</button></div>
    </article>`;
   }
-  return `<button type="button" class="chat-row" data-action="read-notification" data-id="${html(n.id)}">${tile(n.kind==='message'?'chat':n.kind==='holiday'?'holiday':n.kind.startsWith('friend_')?'friends':'bell',n.read?'blue':'orange')}<div class="grow"><strong class="friend-name">${html(n.title)}</strong><small style="white-space:normal">${html(n.body)}</small><small>${dateShort(n.date)}</small></div>${!n.read?'<span class="list-count">1</span>':''}</button>`;
+  return `<button type="button" class="chat-row" data-action="read-notification" data-id="${html(n.id)}">${tile(n.kind==='message'?'chat':n.kind==='holiday'?'holiday':String(n.kind||'').startsWith('friend_')?'friends':'bell',n.read?'blue':'orange')}<div class="grow"><strong class="friend-name">${html(n.title)}</strong><small style="white-space:normal">${html(n.body)}</small><small>${dateShort(n.date)}</small></div>${!n.read?'<span class="list-count">1</span>':''}</button>`;
  }).join('');
  return `${title('Уведомления','События, сообщения и заявки в друзья',button('Прочитать все','read-all','secondary small'))}<div class="card compact">${records||'<div class="empty">Пока уведомлений нет.</div>'}</div>`;
 }
