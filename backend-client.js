@@ -164,7 +164,7 @@
     await api("/friends/"+encodeURIComponent(btn.dataset.id)+"/","DELETE");
    }
    if(action==="read")await api("/notifications/"+encodeURIComponent(btn.dataset.id)+"/read/","POST");
-    if(action==="read-all")await api("/notifications/read-all/","POST");
+    if(action==="read-all"){await api("/notifications/read-all/","POST");window.MV_APP_BRIDGE?.markLocalNotificationsRead?.()}
    if(action==="request")btn.textContent="Отправлена";
    refresh();
    await loadCounts();
