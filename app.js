@@ -281,13 +281,17 @@ function friendStatus(f){
  const info=config[f.state]||config.offline;
  return `<span class="friend-status-panel"><span class="friend-status ${info.color}"><img src="assets/status-${info.image}.svg" alt="" aria-hidden="true"><span>${html(info.label)}</span></span><small>${html(info.detail)}</small></span>`;
 }
+
 function friendsPage(){
- const count=state.friends.length;
- return `${title("Друзья","Коллеги, связь и планы",`<button class="icon-button" data-action="add-friend" aria-label="Добавить друга">${icon("plus")}</button>`)}
- <div class="friends-intro card compact"><span class="friend-group-icon">${icon("friends")}</span><div class="grow"><h3>Найдите коллег и друзей</h3><p>По имени, профессии или организации</p></div>${button("Добавить","add-friend","primary small")}</div>
- <div class="friend-tools"><label class="searchbox">${icon("search")}<input id="friendSearch" type="search" placeholder="Поиск друзей" value="${html(ui.friendSearch)}" aria-label="Поиск друзей"></label></div>
+ const count=state.friends.length,incoming=pendingFriendRequests(),outgoing=pendingFriendRequests("outgoing");
+ return `${title("Друзья","Коллеги, связь и планы",`<button class="icon-button" data-action="add-friend" aria-label="Найти и добавить друга">${icon("plus")}</button>`)}
+ <div class="card friends-intro"><span class="friend-group-icon">${icon("friends")}</span><div class="grow"><h3>Найти знакомых</h3><p>По аккаунту, через контакты или приглашение</p></div>${button("Найти","add-friend","primary small")}</div>
+ ${incoming.length?`<div class="section-head friends-heading"><h2>${icon('friends')} Заявки в друзья <span class="list-count">${incoming.length}</span></h2></div><div class="card compact friend-request-list">${incoming.map(friendRequestItem).join('')}</div>`:""}
+ ${outgoing.length?`<div class="section-head friends-heading"><h2>Отправленные заявки <span class="small muted">${outgoing.length}</span></h2></div><div class="card compact friend-request-list">${outgoing.map(friendRequestItem).join('')}</div>`:""}
+ <div class="friend-tools"><label class="searchbox">${icon("search")}<input id="friendSearch" type="search" placeholder="Поиск среди друзей" value="${html(ui.friendSearch)}" aria-label="Поиск среди друзей"></label></div>
  <div class="section-head friends-heading"><h2>${icon("friends")} Мои друзья <span class="small muted">${count}</span></h2><select id="friendFilter" aria-label="Фильтр по статусу"><option value="all" ${ui.friendFilter==="all"?"selected":""}>Все статусы</option><option value="shift" ${ui.friendFilter==="shift"?"selected":""}>На вахте</option><option value="rest" ${ui.friendFilter==="rest"?"selected":""}>Межвахта</option><option value="vacation" ${ui.friendFilter==="vacation"?"selected":""}>Отпуск</option><option value="offline" ${ui.friendFilter==="offline"?"selected":""}>Не в сети</option></select></div>
  <div id="friendResults" class="card compact friend-list">${friendsMarkup()}</div>
+ ${state.friends.some(f=>accountById(f.accountId)?.isDemo)?`<p class="friend-demo-notice">${icon('shield')} Отмеченные как «Демо» анкеты — примеры из прототипа, не подтверждённые аккаунты. Реальные друзья появятся после подключения авторизации и сервера.</p>`:""}
  `;
 }
 function friendsMarkup(){
@@ -296,7 +300,7 @@ function friendsMarkup(){
  return list.map(f=>`<button class="person-row friend-list-row" type="button" data-action="friend-detail" data-id="${html(f.id)}" aria-label="Открыть анкету: ${html(f.name)}">
  <span class="friend-picture">${friendAvatar(f)}<i class="friend-presence ${f.state==="offline"?"away":"available"}"></i></span>
  <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small></span>
- ${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
+ ${accountById(f.id)?.isDemo?'<span class="friend-demo-pill">Демо</span>':''}${friendStatus(f)}<span class="friend-chevron">${icon("chevron")}</span></button>`).join("")||`<div class="empty">По выбранному фильтру друзей нет.</div>`;
 }
 function friendOrganizationSection(demo){
  const ratings=demo.ratings;
@@ -335,7 +339,7 @@ function friendProfilePage(){
  const demo={"f1":{"location":"ЯНАО, Новопортовское месторождение","schedule":"60/30","experience":"5 лет","about":"Работаю вахтовым методом. Люблю технику и надёжных людей.","ratings":{"Зарплата":4,"Бытовые условия":5,"Руководство":4,"График вахты":5},"review":"Хорошие условия на объекте, выплаты по графику.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"friends","payments":[{"date":"2026-10-10","type":"advance","amount":55000},{"date":"2026-09-25","type":"salary","amount":73000}]},"f2":{"location":"Тюменская область","schedule":"30/30","experience":"3 года","about":"Электромонтаж, работа на промышленных объектах.","ratings":{"Зарплата":4,"Бытовые условия":4,"Руководство":3,"График вахты":4},"review":"Команда отличная, условия нормальные.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"self","payments":[]},"f3":{"location":"Красноярский край","schedule":"45/45","experience":"6 лет","about":"Исследую новые места и люблю путешествия.","ratings":{"Зарплата":5,"Бытовые условия":4,"Руководство":4,"График вахты":5},"review":"Интересные проекты и дружный коллектив.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"self","payments":[]},"f4":{"location":"Республика Коми","schedule":"30/30","experience":"4 года","about":"Ремонт и обслуживание промышленного оборудования.","ratings":{"Зарплата":4,"Бытовые условия":3,"Руководство":4,"График вахты":4},"review":"Стабильная работа и понятные задачи.","ratingAccess":"friends","reviewAccess":"friends","financeAccess":"friends","payments":[{"date":"2026-10-15","type":"advance","amount":48000},{"date":"2026-09-30","type":"salary","amount":62000}]}}[f.id]||{location:"Не указано",schedule:"Не указан",experience:"Не указан",about:"Информация о себе пока не заполнена.",ratings:null,review:"",ratingAccess:"self",reviewAccess:"self",financeAccess:"self",payments:[]};
  const safeId=html(f.id);
  const isVisible=f.state!=="offline";
- return `<div class="friend-profile-header"><button type="button" class="friend-back" data-action="back-to-friends" aria-label="Назад к друзьям">${icon("arrow-left")}</button><h1>Профиль друга</h1><button type="button" class="friend-message-icon" data-action="chat-friend" data-id="${safeId}" aria-label="Написать другу">${icon("chat")}</button></div>
+ return `${accountById(f.id)?.isDemo?'<div class="friend-demo-banner">Демонстрационный профиль, не подтверждённый пользователь</div>':''}<div class="friend-profile-header"><button type="button" class="friend-back" data-action="back-to-friends" aria-label="Назад к друзьям">${icon("arrow-left")}</button><h1>Профиль друга</h1><button type="button" class="friend-message-icon" data-action="chat-friend" data-id="${safeId}" aria-label="Написать другу">${icon("chat")}</button></div>
  <article class="card friend-profile-main"><div class="friend-profile-head">${friendAvatar(f,"profile-avatar-xl")}<div class="friend-profile-info"><h2>${html(f.name)}</h2><p>${html(f.company||"Организация не указана")}</p><p>${html(f.role||"Профессия не указана")}</p>${friendStatus(f)}</div></div></article>
  <article class="card friend-profile-section"><h3>${icon("friends")} О человеке</h3><p class="friend-about">${html(demo.about)}</p><dl class="friend-profile-facts"><div><dt>Организация</dt><dd>${html(f.company||"Не указана")}</dd></div><div><dt>Должность</dt><dd>${html(f.role||"Не указана")}</dd></div><div><dt>График</dt><dd>${html(demo.schedule)}</dd></div><div><dt>Регион</dt><dd>${html(demo.location)}</dd></div><div><dt>Стаж</dt><dd>${html(demo.experience)}</dd></div></dl></article>
  ${window.MV_ORG.reviewsForFriend(state,f.id).length?
