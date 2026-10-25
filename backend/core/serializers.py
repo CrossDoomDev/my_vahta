@@ -103,10 +103,12 @@ class NoteSerializer(serializers.ModelSerializer):
 class RequestSerializer(serializers.ModelSerializer):
     sender = serializers.UUIDField(source="sender.vahta_profile.id", read_only=True)
     recipient = serializers.UUIDField(source="recipient.vahta_profile.id", read_only=True)
+    sender_name = serializers.CharField(source="sender.vahta_profile.display_name", read_only=True)
+    recipient_name = serializers.CharField(source="recipient.vahta_profile.display_name", read_only=True)
 
     class Meta:
         model = FriendRequest
-        fields = ("id", "sender", "recipient", "status", "created_at", "responded_at")
+        fields = ("id", "sender", "recipient", "sender_name", "recipient_name", "status", "created_at", "responded_at")
 
 
 class NotificationSerializer(serializers.ModelSerializer):
