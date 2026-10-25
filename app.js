@@ -725,7 +725,18 @@ case 'open-chat':openChat(el.dataset.id);return;
 case 'back-to-messages':nav('messages');return;
 case 'send-message':sendMessage();return;
 case 'read-all':state.notifications.filter(n=>notificationsEnabled(n.kind)).forEach(n=>n.read=true);persist();render();return;
-case 'read-notification':{const n=state.notifications.find(x=>x.id===el.dataset.id);if(n)n.read=true;persist();if(n?.kind==='friend_request'||n?.kind==='friend_accepted')nav('friends');else render();return}
+case 'read-notification':{
+ const n=state.notifications.find(x=>x.id===el.dataset.id);
+ if(!n)return;
+ n.read=true;persist();
+ if(n.kind==='friend_request'||n.kind==='friend_accepted')nav('friends');
+ else if(n.kind==='message')nav('messages');
+ else if(n.kind==='shift')nav('calendar');
+ else if(categoryForNotification(n.kind)==='payments')nav('finance');
+ else if(categoryForNotification(n.kind)==='holidays')nav('holidays');
+ else render();
+ return;
+}
 case 'export':dataExport();return;
 case 'import':$('importFile').click();return;
 case 'reset':if(confirm('Удалить все данные, включая выплаты, заметки и сообщения? Перед сбросом можно создать резервную копию.')){state=window.MV_ORG.enrichState(seed());persist();ui.view='home';render();toast('Данные сброшены')}return;
