@@ -19,6 +19,7 @@ class Profile(models.Model):
     profession = models.CharField(max_length=100, blank=True)
     discoverable = models.BooleanField(default=False)
     sync_revision = models.PositiveIntegerField(default=0)
+    notification_preferences = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
