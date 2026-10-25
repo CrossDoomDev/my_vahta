@@ -238,7 +238,12 @@ function friendProfilePage(){
  return `<div class="friend-profile-header"><button type="button" class="friend-back" data-action="back-to-friends" aria-label="Назад к друзьям">${icon("arrow-left")}</button><h1>Профиль друга</h1><button type="button" class="friend-message-icon" data-action="chat-friend" data-id="${safeId}" aria-label="Написать другу">${icon("chat")}</button></div>
  <article class="card friend-profile-main"><div class="friend-profile-head">${friendAvatar(f,"profile-avatar-xl")}<div class="friend-profile-info"><h2>${html(f.name)}</h2><p>${html(f.company||"Организация не указана")}</p><p>${html(f.role||"Профессия не указана")}</p>${friendStatus(f)}</div></div></article>
  <article class="card friend-profile-section"><h3>${icon("friends")} О человеке</h3><p class="friend-about">${html(demo.about)}</p><dl class="friend-profile-facts"><div><dt>Организация</dt><dd>${html(f.company||"Не указана")}</dd></div><div><dt>Должность</dt><dd>${html(f.role||"Не указана")}</dd></div><div><dt>График</dt><dd>${html(demo.schedule)}</dd></div><div><dt>Регион</dt><dd>${html(demo.location)}</dd></div><div><dt>Стаж</dt><dd>${html(demo.experience)}</dd></div></dl></article>
- ${friendOrganizationSection(demo)}
+ ${window.MV_ORG.reviewsForFriend(state,f.id).length?
+  `<section class="friend-org-samples"><h3 class="friend-org-reviews-title">${icon("star")} Отзывы о местах работы</h3>${window.MV_ORG.reviewsForFriend(state,f.id).map(r=>{
+   const company=window.MV_ORG.byId(r.organizationId);
+   return `<div class="friend-org-review-entry"><button type="button" class="org-employment-link" data-action="open-org" data-id="${html(r.organizationId)}"><span>${html(company?.name||"Организация")}</span>${icon("chevron")}</button>${window.MV_ORG.reviewCard(r,state)}</div>`;
+  }).join("")}</section>`:
+  friendOrganizationSection(demo)}
  ${friendFinancialSection(demo)}
  <article class="card friend-profile-section"><h3>${icon("building")} Опыт работы</h3>${(f.workHistory||[]).map(h=>{const o=window.MV_ORG.byId(h.organizationId);return o?`<button class="org-employment-link" type="button" data-action="open-org" data-id="${html(o.id)}"><span>${html(o.name)}</span><small>${html(h.since||"")} — ${html(h.until||"сейчас")}</small>${icon("chevron")}</button>`:""}).join("")||'<p class="friend-about">Нет записей об организациях.</p>'}</article>
  <article class="card friend-profile-section"><h3>${icon("calendar")} Текущий статус</h3><div class="friend-shift-card">${friendStatus(f)}${isVisible?`<div class="friend-shift-track"><span style="width:${Math.max(9,100-Math.min(90,Math.max(0,Number(f.days)||0)))}%"></span></div>`:""}</div>
