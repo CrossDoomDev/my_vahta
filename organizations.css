@@ -103,3 +103,8 @@
   .org-review-line>span{letter-spacing:0;font-size:14px}
   .org-company-heading h1{font-size:18px}
 }
+
+.org-logo svg,.org-company-logo svg{height:24px;width:24px;fill:none;stroke:#f7ad68;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.org-company-logo svg{width:31px;height:31px}
+.friend-org-review-entry{margin-bottom:16px}
+.friend-org-reviews-title{font-size:14px;margin:12px 0}
