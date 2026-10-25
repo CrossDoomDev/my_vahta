@@ -471,19 +471,58 @@ function shiftNotificationDetails(n){
  return {...n,title,body};
 }
 
+function notificationRow(key,label,description,iconName){
+ const p=state.notificationSettings;
+ return '<label class="notice-setting-row"><span class="notice-setting-icon">'+icon(iconName)+'</span>'+
+  '<span class="notice-setting-copy"><strong>'+html(label)+'</strong><small>'+html(description)+'</small></span>'+
+  '<input type="checkbox" data-notification-setting="'+key+'" aria-label="'+html(label)+'" '+(p[key]?'checked':'')+
+  (!p.enabled&&key!=='enabled'?' disabled':'')+'><span class="notice-switch" aria-hidden="true"></span></label>';
+}
+function notificationDays(key,label){
+ const p=state.notificationSettings,category=key==='shift_days'?'shift':'holidays';
+ return '<label class="notice-days-row"><span>'+html(label)+'</span><select data-notification-setting="'+key+'"'+(!p.enabled||!p[category]?' disabled':'')+'>'+
+ NOTIFICATION_DAY_OPTIONS[key].map(n=>'<option value="'+n+'"'+(p[key]===n?' selected':'')+'>'+(n===0?'В день события':'За '+n+' '+plural(n,['день','дня','дней']))+'</option>').join('')+'</select></label>';
+}
+function notificationSettingsMarkup(){
+ return '<div class="card notice-settings-card"><div class="card-title">'+icon('bell')+' Основные настройки</div>'+
+   notificationRow('enabled','Уведомления в приложении','Общий переключатель уведомлений и счётчика','bell')+
+   '<p class="notice-help">Выключенные категории не создают новые уведомления. Старые записи сохраняются.</p></div>'+
+  '<div class="card notice-settings-card"><div class="card-title">'+icon('calendar')+' График и события</div>'+
+   notificationRow('shift','Начало и окончание вахты','Напоминать о датах моего графика','calendar')+
+   notificationDays('shift_days','Предупреждать о вахте')+
+   notificationRow('payments','Финансы','Оповещать о добавленных выплатах','coins')+
+   notificationRow('holidays','Профессиональные праздники','Для сферы работы, указанной в профиле','holiday')+
+   notificationDays('holiday_days','Предупреждать о празднике')+'</div>'+
+  '<div class="card notice-settings-card"><div class="card-title">'+icon('friends')+' Общение</div>'+
+   notificationRow('message','Новые сообщения','Когда друг отправляет сообщение','chat')+
+   notificationRow('friend_request','Заявки в друзья','Когда меня хотят добавить в друзья','friends')+
+   notificationRow('friend_accepted','Заявка принята','Когда мою заявку принимают','check')+'</div>'+
+  '<p class="note-text notice-disclaimer">Это уведомления внутри приложения: календарные напоминания создаются при открытии сайта. Push при закрытом приложении пока не поддерживается. '+
+  (window.MVServerUI?.connected?'Настройки категорий также сохраняются на сервере.':'Без входа настройки сохраняются в этом браузере.')+'</p>';
+}
 function notificationsPage(){
- if(window.MVServerUI?.connected)return `${title('Уведомления','Заявки и сообщения с сервера')}<div id="mvServerNotifications" class="card"><p class="note-text">Загрузка уведомлений…</p></div>`;
- const records=state.notifications.map(n=>{
-  const request=n.kind==="friend_request"?state.friendRequests.find(r=>r.id===n.requestId&&r.status==="pending"&&r.direction==="incoming"):null;
-  if(request){
-   return `<article class="card friend-notification"><div class="friend-notification-title">${icon('friends')} <strong>${html(n.title)}</strong><span class="friend-demo-pill">Демо</span></div>
-    <p class="small muted">${html(n.body)}</p>
-    <div class="friend-request-actions"><button type="button" class="btn primary small" data-action="accept-friend-request" data-id="${html(request.id)}">Принять</button><button type="button" class="btn secondary small" data-action="decline-friend-request" data-id="${html(request.id)}">Отклонить</button></div>
-   </article>`;
-  }
-  return `<button type="button" class="chat-row" data-action="read-notification" data-id="${html(n.id)}">${tile(n.kind==='message'?'chat':n.kind==='holiday'?'holiday':String(n.kind||'').startsWith('friend_')?'friends':'bell',n.read?'blue':'orange')}<div class="grow"><strong class="friend-name">${html(n.title)}</strong><small style="white-space:normal">${html(n.body)}</small><small>${dateShort(n.date)}</small></div>${!n.read?'<span class="list-count">1</span>':''}</button>`;
+ const online=Boolean(window.MVServerUI?.connected),tab=ui.notificationsTab;
+ const tabs='<div class="notice-tabs" role="group" aria-label="Разделы уведомлений">'+
+  '<button type="button" class="'+(tab==='inbox'?'active':'')+'" data-action="notification-tab" data-tab="inbox" aria-pressed="'+(tab==='inbox')+'">'+icon('bell')+' Входящие</button>'+
+  '<button type="button" class="'+(tab==='settings'?'active':'')+'" data-action="notification-tab" data-tab="settings" aria-pressed="'+(tab==='settings')+'">'+icon('settings')+' Настроить</button></div>';
+ const header=title('Уведомления',tab==='settings'?'Выберите нужные оповещения':'История событий и оповещений');
+ if(tab==='settings')return header+tabs+notificationSettingsMarkup();
+ if(online)return header+tabs+
+   '<div class="notice-actions"><button type="button" class="btn secondary small" data-mv-action="read-all">Прочитать все</button></div>'+
+   '<div id="mvServerNotifications" class="card compact"><p class="note-text">Загружаем уведомления с сервера…</p></div>';
+ const records=state.notifications.filter(n=>notificationsEnabled(n.kind)).map(n=>{
+  const request=n.kind==='friend_request'?state.friendRequests.find(r=>r.id===n.requestId&&r.status==='pending'&&r.direction==='incoming'):null;
+  if(request)return '<article class="friend-notification"><div class="friend-notification-title">'+icon('friends')+' <strong>'+html(n.title)+'</strong><span class="friend-demo-pill">Демо</span></div>'+
+     '<p class="small muted">'+html(n.body)+'</p><div class="friend-request-actions"><button type="button" class="btn primary small" data-action="accept-friend-request" data-id="'+html(request.id)+'">Принять</button>'+
+     '<button type="button" class="btn secondary small" data-action="decline-friend-request" data-id="'+html(request.id)+'">Отклонить</button></div></article>';
+  const kind=categoryForNotification(n.kind);
+  return '<button type="button" class="chat-row" data-action="read-notification" data-id="'+html(n.id)+'">'+
+    tile(kind==='message'?'chat':kind==='holidays'?'holiday':kind==='payments'?'coins':kind.startsWith('friend_')?'friends':'bell',n.read?'blue':'orange')+
+    '<div class="grow"><strong class="friend-name">'+html(n.title)+'</strong><small style="white-space:normal">'+html(n.body)+'</small><small>'+dateShort(n.date)+'</small></div>'+
+    (!n.read?'<span class="list-count">1</span>':'')+'</button>';
  }).join('');
- return `${title('Уведомления','События, сообщения и заявки в друзья',button('Прочитать все','read-all','secondary small'))}<div class="card compact">${records||'<div class="empty">Пока уведомлений нет.</div>'}</div>`;
+ return header+tabs+'<div class="notice-actions">'+button('Прочитать все','read-all','secondary small')+'</div>'+
+   '<div class="card compact">'+(records||'<div class="empty">Нет уведомлений по выбранным категориям.</div>')+'</div>';
 }
 function settingsPage(){return `${title('Настройки и данные','Резервные копии и управление данными')}<div class="card"><div class="card-title">${icon('shield')} Резервное копирование</div><div class="row" style="margin-top:13px">${button(icon('download')+' Экспорт JSON','export','primary full')}${button(icon('upload')+' Импорт','import','secondary full')}</div></div><div class="card"><div class="card-title">Управление данными</div><div style="margin-top:14px">${button('Сбросить данные','reset','danger full')}</div></div>`}
 let onModalSave=null;
