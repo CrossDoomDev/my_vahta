@@ -142,7 +142,7 @@
   function orgCard(o,state){
     const {all,rating,friends}=summary(state,o.id);
     return `<button class="org-search-result" type="button" data-action="open-org" data-id="${esc(o.id)}">
-      <span class="org-logo">🏭</span><span class="org-result-body"><strong>${esc(o.name)}</strong><small>${esc(o.industry)}</small><span class="org-result-meta">${rating?`<span>★ ${rating}</span>`:"<span>Нет публичной оценки</span>"}<span>${all.length} ${all.length===1?"отзыв":"отзывов"}</span>${friends.length?`<span>● ${friends.length} из друзей</span>`:""}</span></span><span class="org-arrow">›</span>
+      <span class="org-logo"><svg aria-hidden="true"><use href="#i-building"></use></svg></span><span class="org-result-body"><strong>${esc(o.name)}</strong><small>${esc(o.industry)}</small><span class="org-result-meta">${rating?`<span>★ ${rating}</span>`:"<span>Нет публичной оценки</span>"}<span>${all.length} ${all.length===1?"отзыв":"отзывов"}</span>${friends.length?`<span>● ${friends.length} из друзей</span>`:""}</span></span><span class="org-arrow">›</span>
     </button>`;
   }
   function searchMarkup(state,query,limit=50){
@@ -191,7 +191,7 @@
     const myReview=state.organizationReviews.find(r=>r.organizationId===o.id&&r.authorAccountId==="me");
     return `<div class="org-detail-top"><button class="org-back" type="button" data-action="back-orgs">← Организации</button></div>
       <article class="card org-company-card">
-        <div class="org-company-heading"><span class="org-company-logo">🏭</span><div><h1>${esc(o.name)}</h1><p>${esc(o.industry)}</p></div></div>
+        <div class="org-company-heading"><span class="org-company-logo"><svg aria-hidden="true"><use href="#i-building"></use></svg></span><div><h1>${esc(o.name)}</h1><p>${esc(o.industry)}</p></div></div>
         <div class="org-company-stats"><span>${s.rating?`★ ${s.rating}`:"Без оценки"}<small>Публичный рейтинг</small></span><span>${s.all.length}<small>Доступных отзывов</small></span><span>${s.friends.length}<small>Друзей работали</small></span></div>
         <p class="org-source">Справочник организаций · <a href="${esc(o.source)}" target="_blank" rel="noopener noreferrer">Источник названия ↗</a></p>
       </article>
