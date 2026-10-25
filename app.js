@@ -448,7 +448,7 @@ document.addEventListener('input',event=>{
   const results=$('organizationResults'),count=$('organizationResultCount');
   if(results)results.innerHTML=matching.slice(0,20).map(o=>window.MV_ORG.orgCard(o,state)).join('')||'<div class="org-empty">Совпадений нет.</div>';
   if(count)count.textContent='Показано '+Math.min(20,matching.length)+' из '+matching.length;
-  document.querySelector('.org-show-more')?.remove();
+  const moreButton=document.querySelector('.org-show-more');if(moreButton)moreButton.hidden=matching.length<=20;
   return;
  }
  if(t.id==='orgPickerSearch'){
