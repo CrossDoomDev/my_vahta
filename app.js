@@ -138,7 +138,7 @@ function avatarByAccountId(accountId, size="") {
 }
 function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return migrateSocial(migratePrivacy(seed()));return migrateSocial(migratePrivacy(x))}catch{return migrateSocial(migratePrivacy(seed()))}}
 let state=window.MV_ORG.enrichState(load());
-const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",friendDiscoverySearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
+const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",friendDiscoverySearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendSort:"original",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));return true}catch{toast("Не удалось сохранить данные. Проверьте свободное место.");return false}}
 function toast(message){const e=$('toast');e.textContent=message;e.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.hidden=true,3400)}
 const button = (label,action,variant='secondary',attrs='') => `<button type="button" class="btn ${variant}" data-action="${action}" ${attrs}>${label}</button>`;
@@ -343,14 +343,15 @@ function friendsPage(){
  ${incoming.length?`<div class="section-head friends-heading"><h2>${icon('friends')} Заявки в друзья <span class="list-count">${incoming.length}</span></h2></div><div class="card compact friend-request-list">${incoming.map(friendRequestItem).join('')}</div>`:""}
  ${outgoing.length?`<div class="section-head friends-heading"><h2>Отправленные заявки <span class="small muted">${outgoing.length}</span></h2></div><div class="card compact friend-request-list">${outgoing.map(friendRequestItem).join('')}</div>`:""}
  <div class="friend-tools"><label class="searchbox">${icon("search")}<input id="friendSearch" type="search" placeholder="Поиск среди друзей" value="${html(ui.friendSearch)}" aria-label="Поиск среди друзей"></label></div>
- <div class="section-head friends-heading"><h2>${icon("friends")} Мои друзья <span class="small muted">${count}</span></h2><select id="friendFilter" aria-label="Фильтр по статусу"><option value="all" ${ui.friendFilter==="all"?"selected":""}>Все статусы</option><option value="shift" ${ui.friendFilter==="shift"?"selected":""}>На вахте</option><option value="rest" ${ui.friendFilter==="rest"?"selected":""}>Межвахта</option><option value="vacation" ${ui.friendFilter==="vacation"?"selected":""}>Отпуск</option><option value="offline" ${ui.friendFilter==="offline"?"selected":""}>Не в сети</option></select></div>
+ <div class="section-head friends-heading"><h2>${icon("friends")} Мои друзья <span class="small muted">${count}</span></h2><span class="friends-sort-controls"><select id="friendFilter" aria-label="Фильтр друзей по статусу"><option value="all" ${ui.friendFilter==="all"?"selected":""}>Все статусы</option><option value="shift" ${ui.friendFilter==="shift"?"selected":""}>На вахте</option><option value="rest" ${ui.friendFilter==="rest"?"selected":""}>Межвахта</option><option value="vacation" ${ui.friendFilter==="vacation"?"selected":""}>Отпуск</option><option value="online" ${ui.friendFilter==="online"?"selected":""}>Онлайн</option></select><select id="friendSort" aria-label="Сортировать друзей"><option value="original" ${ui.friendSort==="original"?"selected":""}>По умолчанию</option><option value="name" ${ui.friendSort==="name"?"selected":""}>По имени (А–Я)</option></select></span></div>
  <div id="friendResults" class="card compact friend-list">${friendsMarkup()}</div>
  ${state.friends.some(f=>accountById(f.accountId)?.isDemo)?`<p class="friend-demo-notice">${icon('shield')} Отмеченные как «Демо» анкеты — примеры из прототипа, не подтверждённые аккаунты. Реальные друзья появятся после подключения авторизации и сервера.</p>`:""}
  `;
 }
 function friendsMarkup(){
  const q=ui.friendSearch.trim().toLocaleLowerCase("ru");
- const list=state.friends.map(link=>friendByAccountId(link.accountId)).filter(f=>f&&(ui.friendFilter==="all"||f.state===ui.friendFilter)&&[f.name,f.role,f.company].some(x=>String(x).toLocaleLowerCase("ru").includes(q)));
+ const list=state.friends.map(link=>friendByAccountId(link.accountId)).filter(f=>f&&(ui.friendFilter==="all"||(ui.friendFilter==="online"?f.state!=="offline":f.state===ui.friendFilter))&&[f.name,f.role,f.company].some(x=>String(x).toLocaleLowerCase("ru").includes(q)));
+  if(ui.friendSort==="name")list.sort((a,b)=>a.name.localeCompare(b.name,"ru",{sensitivity:"base"}));
  return list.map(f=>`<button class="person-row friend-list-row" type="button" data-action="friend-detail" data-id="${html(f.id)}" aria-label="Открыть анкету: ${html(f.name)}">
  <span class="friend-picture">${friendAvatar(f)}<i class="friend-presence ${f.state==="offline"?"away":"available"}"></i></span>
  <span class="friend-bio"><strong class="friend-name">${html(f.name)}</strong><small>${html(f.company||"Компания не указана")} · ${html(f.role||"Профессия не указана")}</small>${accountById(f.id)?.isDemo?'<span class="friend-demo-pill">Демо</span>':''}</span>
@@ -790,7 +791,7 @@ document.addEventListener('change',event=>{const t=event.target;
    if(!confirm(message)){t.value=previous;return}
  }
  state.privacy[key]=val;persist();render();toast('Настройки видимости сохранены');return;
-}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
+}if(t.dataset.taskNote){const note=state.notes.find(n=>n.id===t.dataset.taskNote),task=note?.tasks[Number(t.dataset.taskIndex)];if(task){task.done=t.checked;persist();const l=t.closest('.task-item');l?.classList.toggle('completed',t.checked)}return}if(t.id==='holidayFilter'){ui.holidaySector=t.value;render();return}if(t.id==='friendFilter'){ui.friendFilter=t.value;$('friendResults').innerHTML=friendsMarkup();return}if(t.id==='friendSort'){ui.friendSort=t.value;$('friendResults').innerHTML=friendsMarkup();return}});
 document.addEventListener('input',event=>{
  const t=event.target;
  if(t.id==='organizationSearch'){
