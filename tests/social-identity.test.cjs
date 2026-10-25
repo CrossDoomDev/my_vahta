@@ -6,6 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const organizations = fs.readFileSync(path.join(__dirname, "..", "data", "organizations.js"), "utf8");
+const organizationUi = fs.readFileSync(path.join(__dirname, "..", "data", "organizations-ui.js"), "utf8");
 const boundary = source.indexOf("document.addEventListener('click'");
 assert.ok(boundary > 0, "Не найден участок отделения UI от DOM-обработчиков");
 
@@ -26,14 +28,14 @@ function boot(snapshot) {
   const local = {getItem(){return saved;},setItem(){}};
   const location = {hash:""};
   const window = {location};
-  const run = new Function("document", "localStorage", "location", "window", harness);
+  const run = new Function("document", "localStorage", "location", "window", organizations + "\n" + organizationUi + "\n" + harness);
   return run(doc, local, location, window);
 }
 
 test("Профили хранятся один раз, отношения и чаты хранят только ссылки на аккаунт", () => {
   const app = boot();
   assert.equal(app.state.version, 2);
-  assert.equal(Object.keys(app.state.accounts).length, 4);
+  assert.equal(Object.keys(app.state.accounts).length, 16);
   assert.ok(app.state.friends.every(f => f.accountId && !f.name && !f.avatarUrl));
   assert.ok(app.state.chats.every(c => c.participantAccountId && c.id !== c.participantAccountId && !c.name && !c.avatarUrl));
 });
