@@ -33,6 +33,7 @@ function seed(){const now=today(),old=shiftDate(now,-11),end=shiftDate(now,18),p
    f4:{id:"f4",name:"Сергей Кузнецов",role:"Механик",company:"Северная база",avatarUrl:"assets/avatar-sergey.svg",letter:"С",skin:"alt3"}
  },
  friends:[{accountId:"f1",state:"shift",days:12},{accountId:"f2",state:"rest",days:8},{accountId:"f3",state:"vacation",days:5},{accountId:"f4",state:"shift",days:27}],
+ friendRequests:[],
  chats:[{id:"chat-f1",participantAccountId:"f1",unread:2,messages:[{id:id(),out:false,text:"Привет! Как там на объекте?",time:"09:12"},{id:id(),out:false,text:"Всё нормально? Когда домой?",time:"09:24"}]},{id:"chat-f2",participantAccountId:"f2",unread:1,messages:[{id:id(),out:false,text:"Увидимся на межвахте!",time:"Вчера"}]},{id:"chat-f3",participantAccountId:"f3",unread:0,messages:[{id:id(),out:true,text:"Привет! Как отпуск?",time:"Вчера"},{id:id(),out:false,text:"Отлично, отдыхаю 😊",time:"Вчера"}]}],
  notifications:[{id:id(),title:"Вахта скоро закончится",body:"Осталось менее 3 недель до возвращения домой.",date:now,read:false,kind:"shift"},{id:id(),title:"Профессиональные праздники",body:"В календаре появились праздники разных профессий.",date:now,read:false,kind:"holiday"},{id:id(),title:"Новые сообщения",body:"У вас есть непрочитанные сообщения.",date:now,read:false,kind:"message"}]
  };}
@@ -69,6 +70,7 @@ function migrateSocial(x) {
       avatarUrl: String(old.avatarUrl || raw?.avatarUrl || preset),
       letter: String(old.letter || raw?.letter || name.slice(0,1)).slice(0,2),
       skin: String(old.skin || raw?.skin || "alt1").slice(0,12),
+      isDemo:Boolean(old.isDemo || /^f[1-4]$/.test(accountId) || accountId.startsWith("demo-")),
       currentOrganizationId:String(old.currentOrganizationId || raw?.currentOrganizationId || ""),
       workHistory:Array.isArray(old.workHistory)?old.workHistory:(Array.isArray(raw?.workHistory)?raw.workHistory:[])
     };
@@ -97,6 +99,7 @@ function migrateSocial(x) {
     };
   }).filter(Boolean);
   x.accounts = accounts;
+  x.friendRequests = (Array.isArray(x.friendRequests)?x.friendRequests:[]).filter(r=>r&&typeof r==="object"&&typeof r.id==="string"&&typeof r.accountId==="string"&&accounts[r.accountId]&&["incoming","outgoing"].includes(r.direction)&&["pending","accepted","declined","cancelled"].includes(r.status)).slice(0,300).map(r=>({id:r.id,accountId:r.accountId,direction:r.direction,status:r.status,createdAt:String(r.createdAt||today()).slice(0,10),demo:Boolean(r.demo||accounts[r.accountId]?.isDemo)}));
   x.version = 2;
   return x;
 }
@@ -119,7 +122,7 @@ function avatarByAccountId(accountId, size="") {
 }
 function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY));if(!x||![1,2].includes(x.version)||!x.shift||!Array.isArray(x.payments)||!Array.isArray(x.notes)||!Array.isArray(x.chats))return seed();return migrateSocial(migratePrivacy(x))}catch{return seed()}}
 let state=window.MV_ORG.enrichState(load());
-const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
+const ui={view:"home",calendarMonth:currentMonth(),financeMonth:currentMonth(),selectedDate:today(),filter:"all",friendSearch:"",friendDiscoverySearch:"",chatId:null,notificationOpen:false,holidaySector:"all",statsYear:new Date().getFullYear(),noteSearch:"",financeFilter:"all",friendFilter:"all",friendId:null,orgSearch:"",orgLimit:20,orgId:null};
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));return true}catch{toast("Не удалось сохранить данные. Проверьте свободное место.");return false}}
 function toast(message){const e=$('toast');e.textContent=message;e.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.hidden=true,3400)}
 const button = (label,action,variant='secondary',attrs='') => `<button type="button" class="btn ${variant}" data-action="${action}" ${attrs}>${label}</button>`;
@@ -141,9 +144,11 @@ function shiftProgress(){return shiftPeriod()}
 const STATUS_LABEL={shift:'На вахте',rest:'На межвахте',vacation:'В отпуске',offline:'Статус скрыт'};
 function unreadMessages(){return state.chats.reduce((n,c)=>n+(Number(c.unread)||0),0)}
 function unreadNotifications(){return state.notifications.filter(n=>!n.read).length}
+function pendingFriendRequests(direction="incoming"){return (state.friendRequests||[]).filter(r=>r.status==="pending"&&r.direction===direction)}
+function unreadFriendRequests(){return pendingFriendRequests().length}
 function nav(view){ui.view=view;ui.chatId=view==='thread'?ui.chatId:null;render();$('appMain').scrollTop=0;window.location.hash=view==='home'?'':view==='organizationDetail'&&ui.orgId?'organizationDetail/'+ui.orgId:view}
-function updateBadges(){const m=unreadMessages(),n=unreadNotifications();$('messagesBadge').hidden=m===0;$('messagesBadge').textContent=m>9?'9+':m;$('notificationBadge').hidden=n===0;$('notificationBadge').textContent=n>9?'9+':n;const selected=['thread','messages'].includes(ui.view)?'messages':ui.view==='friendProfile'?'friends':['organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(ui.view)?'more':ui.view;document.querySelectorAll('.bottom-nav button').forEach(b=>{const a=b.dataset.nav===selected;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
-function render(){updateBadges();const renderers={home:homePage,calendar:calendarPage,finance:financePage,messages:messagesPage,thread:threadPage,friends:friendsPage,friendProfile:friendProfilePage,more:morePage,organization:organizationPage,privacy:privacyPage,statistics:statsPage,notes:notesPage,holidays:holidaysPage,profile:profilePage,notifications:notificationsPage,settings:settingsPage,organizations:()=>window.MV_ORG.catalogPage(state,ui),organizationDetail:()=>window.MV_ORG.detailPage(state,ui)};try{$('appMain').innerHTML=(renderers[ui.view]||homePage)()}catch(e){console.error('Render error',e);$('appMain').innerHTML='<div class="card"><h2>Не удалось открыть раздел</h2><p class="note-text">Попробуйте вернуться на главную страницу.</p>'+button('На главную','go-home','primary')+'</div>'}}
+function updateBadges(){const m=unreadMessages(),n=unreadNotifications(),f=unreadFriendRequests();$('messagesBadge').hidden=m===0;$('messagesBadge').textContent=m>9?'9+':m;$('notificationBadge').hidden=n===0;$('notificationBadge').textContent=n>9?'9+':n;const friendsBadge=$('friendsBadge');if(friendsBadge){friendsBadge.hidden=f===0;friendsBadge.textContent=f>9?'9+':f}const selected=['thread','messages'].includes(ui.view)?'messages':['friendProfile','friendDiscovery'].includes(ui.view)?'friends':['organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(ui.view)?'more':ui.view;document.querySelectorAll('.bottom-nav button').forEach(b=>{const a=b.dataset.nav===selected;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
+function render(){updateBadges();const renderers={home:homePage,calendar:calendarPage,finance:financePage,messages:messagesPage,thread:threadPage,friends:friendsPage,friendProfile:friendProfilePage,friendDiscovery:friendDiscoveryPage,more:morePage,organization:organizationPage,privacy:privacyPage,statistics:statsPage,notes:notesPage,holidays:holidaysPage,profile:profilePage,notifications:notificationsPage,settings:settingsPage,organizations:()=>window.MV_ORG.catalogPage(state,ui),organizationDetail:()=>window.MV_ORG.detailPage(state,ui)};try{$('appMain').innerHTML=(renderers[ui.view]||homePage)()}catch(e){console.error('Render error',e);$('appMain').innerHTML='<div class="card"><h2>Не удалось открыть раздел</h2><p class="note-text">Попробуйте вернуться на главную страницу.</p>'+button('На главную','go-home','primary')+'</div>'}}
 function nextEvents(){const p=state.payments.filter(p=>p.date>=today()).slice().sort((a,b)=>a.date.localeCompare(b.date)).map(p=>({date:p.date,title:p.type==='advance'?'Аванс':p.type==='salary'?'Зарплата':'Выплата',desc:money(p.amount),kind:'coins',color:'green'}));const events=[{date:state.shift.end,title:'Конец вахты',desc:'Возвращение на межвахтовый отдых',kind:'flag',color:'orange'}].concat(p).concat(holidaysForYear(parseISO(today()).getFullYear()).filter(h=>h.date>=today()).map(h=>({date:h.date,title:h.name,desc:h.sector,kind:'holiday',color:'red'}))).filter(x=>x.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);return events}
 function homePage(){const st=status(),p=shiftProgress();let heroText=st.id==='shift'?`${p.elapsed}-й день из ${p.len}`:st.id==='vacation'?'Отдых по вашему выбору':p.upcoming?'Вахта ещё не началась':'Текущая вахта завершена';const remaining=st.id==='shift'?`${p.remaining} ${plural(p.remaining,['день','дня','дней'])}`:st.id==='vacation'?'Время для себя':p.upcoming?`${p.untilStart} ${plural(p.untilStart,['день','дня','дней'])}`:'Вахта завершена';
 return `<section class="hero-card"><div class="hero-photo"></div><div class="hero-body"><span class="hero-eyebrow">Текущий статус</span><div class="hero-status ${st.id}"><span class="status-dot"></span>${html(st.label)}</div><div class="hero-day">${html(heroText)}</div><div class="progress ${st.id==='shift'?'':'orange'}"><span style="--percent:${st.id==='shift'?p.percent:0}%"></span></div><div class="hero-meta"><div><span>Начало вахты</span><strong>${dateNumeric(p.start)}</strong></div><div><span>Конец вахты</span><strong>${dateNumeric(p.end)}</strong></div></div></div></section>
@@ -575,6 +580,6 @@ const hash=location.hash.replace(/^#/, '');
 if(hash.startsWith('organizationDetail/')){
  const organizationId=hash.slice('organizationDetail/'.length);
  if(window.MV_ORG.byId(organizationId)){ui.orgId=organizationId;ui.view='organizationDetail'}
-} else if(['home','calendar','finance','messages','friends','more','organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(hash))ui.view=hash;
+} else if(['home','calendar','finance','messages','friends','more','organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','friendDiscovery','notifications','settings'].includes(hash))ui.view=hash;
 render();
 })();
