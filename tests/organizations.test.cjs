@@ -81,7 +81,8 @@ test("Review exposes seven separate star, comment and photo fields",()=>{
   assert.ok(markup.includes("Бытовые условия"));
   assert.ok(markup.includes("Техника и безопасность"));
   assert.ok(!markup.includes('name="reviewScope"'), "Editor must not set review confidentiality");
-  assert.ok(app.privacyPage().includes("Избранным друзьям"), "Privacy is configured in More → Privacy");
+  assert.ok(app.privacyPage().includes("Конфиденциальность отзывов"), "Review privacy lives in the privacy section");
+  assert.ok(app.morePage().includes('data-nav="privacy"'), "Privacy settings are reached via More");
 });
 
 test("Demo reviews in company catalogue and friends' profiles link to same records",()=>{
