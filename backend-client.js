@@ -63,7 +63,8 @@
    const [notifications,requests]=await Promise.all([api("/notifications/unread-count/"),api("/friend-requests/")]);
    notificationCount=notifications.count||0;requestCount=(requests.results||[]).filter(x=>x.status==="pending"&&x.recipient===account.id).length;
    const nb=document.getElementById("notificationBadge"),fb=document.getElementById("friendsBadge");
-   if(nb){nb.hidden=notificationCount===0;nb.textContent=notificationCount>9?"9+":String(notificationCount)}
+   const allNotices=notificationCount+(window.MV_APP_BRIDGE?.localUnreadNoticeCount?.()||0);
+   if(nb){nb.hidden=allNotices===0;nb.textContent=allNotices>9?"9+":String(allNotices)}
    if(fb){fb.hidden=requestCount===0;fb.textContent=requestCount>9?"9+":String(requestCount)}
   }catch{/* Show cached counts while offline. */}
  }
