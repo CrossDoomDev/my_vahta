@@ -194,7 +194,7 @@ function generateDueNotifications(){
 function pendingFriendRequests(direction="incoming"){return (state.friendRequests||[]).filter(r=>r.status==="pending"&&r.direction===direction)}
 function unreadFriendRequests(){return pendingFriendRequests().length}
 function nav(view){ui.view=view;ui.chatId=view==='thread'?ui.chatId:null;render();$('appMain').scrollTop=0;window.location.hash=view==='home'?'':view==='organizationDetail'&&ui.orgId?'organizationDetail/'+ui.orgId:view}
-function updateBadges(){const online=Boolean(window.MVServerUI?.connected),m=online?0:unreadMessages(),n=online?window.MVServerUI.notificationCount:unreadNotifications(),f=online?window.MVServerUI.requestCount:unreadFriendRequests();$('messagesBadge').hidden=m===0;$('messagesBadge').textContent=m>9?'9+':m;$('notificationBadge').hidden=n===0;$('notificationBadge').textContent=n>9?'9+':n;const friendsBadge=$('friendsBadge');if(friendsBadge){friendsBadge.hidden=f===0;friendsBadge.textContent=f>9?'9+':f}const selected=['thread','messages'].includes(ui.view)?'messages':['friendProfile','friendDiscovery'].includes(ui.view)?'friends':['organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(ui.view)?'more':ui.view;document.querySelectorAll('.bottom-nav button').forEach(b=>{const a=b.dataset.nav===selected;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
+function updateBadges(){const online=Boolean(window.MVServerUI?.connected),m=online?0:unreadMessages(),n=online?(window.MVServerUI.notificationCount+state.notifications.filter(x=>!x.read&&['shift','holidays','holiday','payments','payment'].includes(x.kind)&&notificationsEnabled(x.kind)).length):unreadNotifications(),f=online?window.MVServerUI.requestCount:unreadFriendRequests();$('messagesBadge').hidden=m===0;$('messagesBadge').textContent=m>9?'9+':m;$('notificationBadge').hidden=n===0;$('notificationBadge').textContent=n>9?'9+':n;const friendsBadge=$('friendsBadge');if(friendsBadge){friendsBadge.hidden=f===0;friendsBadge.textContent=f>9?'9+':f}const selected=['thread','messages'].includes(ui.view)?'messages':['friendProfile','friendDiscovery'].includes(ui.view)?'friends':['organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(ui.view)?'more':ui.view;document.querySelectorAll('.bottom-nav button').forEach(b=>{const a=b.dataset.nav===selected;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
 function render(){generateDueNotifications();updateBadges();const renderers={home:homePage,calendar:calendarPage,finance:financePage,messages:messagesPage,thread:threadPage,friends:friendsPage,friendProfile:friendProfilePage,friendDiscovery:friendDiscoveryPage,more:morePage,organization:organizationPage,privacy:privacyPage,statistics:statsPage,notes:notesPage,holidays:holidaysPage,profile:profilePage,notifications:notificationsPage,settings:settingsPage,organizations:()=>window.MV_ORG.catalogPage(state,ui),organizationDetail:()=>window.MV_ORG.detailPage(state,ui)};try{$('appMain').innerHTML=(renderers[ui.view]||homePage)();window.MVServerUI?.onRender?.(ui.view)}catch(e){console.error('Render error',e);$('appMain').innerHTML='<div class="card"><h2>Не удалось открыть раздел</h2><p class="note-text">Попробуйте вернуться на главную страницу.</p>'+button('На главную','go-home','primary')+'</div>'}}
 function nextEvents(){const p=state.payments.filter(p=>p.date>=today()).slice().sort((a,b)=>a.date.localeCompare(b.date)).map(p=>({date:p.date,title:p.type==='advance'?'Аванс':p.type==='salary'?'Зарплата':'Выплата',desc:money(p.amount),kind:'coins',color:'green'}));const events=[{date:state.shift.end,title:'Конец вахты',desc:'Возвращение на межвахтовый отдых',kind:'flag',color:'orange'}].concat(p).concat(holidaysForYear(parseISO(today()).getFullYear()).filter(h=>h.date>=today()).map(h=>({date:h.date,title:h.name,desc:h.sector,kind:'holiday',color:'red'}))).filter(x=>x.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);return events}
 function homePage(){const st=status(),p=shiftProgress();let heroText=st.id==='shift'?`${p.elapsed}-й день из ${p.len}`:st.id==='vacation'?'Отдых по вашему выбору':p.upcoming?'Вахта ещё не началась':'Текущая вахта завершена';const remaining=st.id==='shift'?`${p.remaining} ${plural(p.remaining,['день','дня','дней'])}`:st.id==='vacation'?'Время для себя':p.upcoming?`${p.untilStart} ${plural(p.untilStart,['день','дня','дней'])}`:'Вахта завершена';
@@ -500,6 +500,13 @@ function notificationSettingsMarkup(){
   '<p class="note-text notice-disclaimer">Это уведомления внутри приложения: календарные напоминания создаются при открытии сайта. Push при закрытом приложении пока не поддерживается. '+
   (window.MVServerUI?.connected?'Настройки категорий также сохраняются на сервере.':'Без входа настройки сохраняются в этом браузере.')+'</p>';
 }
+function localNotificationMarkup(){
+ const entries=state.notifications.filter(n=>['shift','holidays','holiday','payments','payment'].includes(n.kind)&&notificationsEnabled(n.kind));
+ return entries.map(n=>'<button type="button" class="chat-row" data-action="read-notification" data-id="'+html(n.id)+'">'+
+ tile(categoryForNotification(n.kind)==='holidays'?'holiday':categoryForNotification(n.kind)==='payments'?'coins':'calendar',n.read?'blue':'orange')+
+ '<div class="grow"><strong class="friend-name">'+html(n.title)+'</strong><small style="white-space:normal">'+html(n.body)+'</small><small>'+dateShort(n.date)+'</small></div>'+
+ (!n.read?'<span class="list-count">1</span>':'')+'</button>').join('')||'<div class="empty">Напоминаний пока нет.</div>';
+}
 function notificationsPage(){
  const online=Boolean(window.MVServerUI?.connected),tab=ui.notificationsTab;
  const tabs='<div class="notice-tabs" role="group" aria-label="Разделы уведомлений">'+
@@ -509,7 +516,8 @@ function notificationsPage(){
  if(tab==='settings')return header+tabs+notificationSettingsMarkup();
  if(online)return header+tabs+
    '<div class="notice-actions"><button type="button" class="btn secondary small" data-mv-action="read-all">Прочитать все</button></div>'+
-   '<div id="mvServerNotifications" class="card compact"><p class="note-text">Загружаем уведомления с сервера…</p></div>';
+   '<div id="mvServerNotifications" class="card compact"><p class="note-text">Загружаем уведомления с сервера…</p></div>'+
+   '<h2 class="notice-local-title">Вахта, выплаты и праздники</h2><div class="card compact">'+localNotificationMarkup()+'</div>';
  const records=state.notifications.filter(n=>notificationsEnabled(n.kind)).map(n=>{
   const request=n.kind==='friend_request'?state.friendRequests.find(r=>r.id===n.requestId&&r.status==='pending'&&r.direction==='incoming'):null;
   if(request)return '<article class="friend-notification"><div class="friend-notification-title">'+icon('friends')+' <strong>'+html(n.title)+'</strong><span class="friend-demo-pill">Демо</span></div>'+
@@ -814,6 +822,10 @@ window.addEventListener('storage',event=>{
 // Explicit local-server import/export bridge; no automatic upload of demo or private data.
 window.MV_APP_BRIDGE={
  refresh:()=>render(),
+ markLocalNotificationsRead:()=>{
+  state.notifications.filter(n=>['shift','holidays','holiday','payments','payment'].includes(n.kind)).forEach(n=>n.read=true);
+  persist();render();
+ },
  setNotificationPreferences:raw=>{
   state.notificationSettings=normalizedNotificationSettings(raw);
   persist();render();
