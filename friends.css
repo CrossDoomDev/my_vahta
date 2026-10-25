@@ -179,10 +179,6 @@
 
 
 /* Notifications inbox and preferences */
-.notice-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
-.notice-tabs button{min-height:44px;border:1px solid #365264;border-radius:12px;background:#152935;color:#b8ccdb;display:flex;gap:8px;align-items:center;justify-content:center;font-size:13px;font-weight:700}
-.notice-tabs button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8}
-.notice-tabs button.active{color:#ffbb7e;border-color:#f39145;background:linear-gradient(120deg,#483020,#1b2b35)}
 .notice-actions{display:flex;justify-content:flex-end;margin:0 0 10px}
 .notice-settings-card{padding:15px 13px!important}
 .notice-settings-card .card-title{margin-bottom:9px}
