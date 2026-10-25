@@ -16,6 +16,7 @@ urlpatterns = [
     path("me/", api.MeView.as_view(), name="me"),
     path("me/privacy/", api.PrivacyView.as_view(), name="privacy"),
     path("me/notification-preferences/", api.NotificationPreferencesView.as_view(), name="notification-preferences"),
+    path("me/presence/", api.PresenceView.as_view(), name="presence"),
     path("shift/", api.ShiftView.as_view(), name="shift"),
     path("shift/summary/", api.ShiftSummaryView.as_view(), name="shift-summary"),
     path("sync/", api.SyncView.as_view(), name="sync"),
