@@ -120,3 +120,41 @@
 /* Fallback initials keep the same size as image avatars when a user has no photo. */
 .avatar.profile-avatar-xl{width:92px;height:92px;flex:none;border-radius:18px;font-size:30px}
 @media(max-width:375px){.avatar.profile-avatar-xl{width:77px;height:77px;font-size:25px}}
+
+
+/* Friend requests / discovery: mobile-first patterns, never imply network delivery before backend. */
+.friend-request-list{padding:5px 12px!important}
+.friend-request-row{display:flex;align-items:flex-start;gap:11px;padding:12px 0;border-bottom:1px solid #293a4b;min-width:0}
+.friend-request-row:last-child{border-bottom:0}
+.friend-request-avatar{width:42px;height:42px;flex:none;display:flex;align-items:center;justify-content:center}
+.friend-request-avatar .avatar,.friend-request-avatar .friend-portrait{width:42px;height:42px}
+.friend-request-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.friend-request-main>strong{font-size:13px;font-weight:750;overflow-wrap:anywhere}
+.friend-request-main>small{font-size:10px;color:#95aab9;line-height:1.45;overflow-wrap:anywhere}
+.friend-request-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:9px}
+.friend-request-actions .btn{min-height:32px;padding:6px 9px;font-size:11px}
+.friend-pending-label{font-size:10px;color:#c5a785;font-weight:650}
+.friend-demo-pill{display:inline-flex;align-items:center;max-width:max-content;margin-top:4px;padding:2px 6px;border-radius:6px;border:1px solid #5d5974;background:#39374b;color:#c5bee4;font-size:9px;font-weight:750;line-height:1.5}
+.friend-demo-banner{border:1px solid #5e5873;border-radius:10px;background:#302d43;color:#dfd3f5;padding:10px;margin-bottom:11px;font-size:11px}
+.friend-discovery-card{padding:14px}
+.friend-discovery-intro strong{display:flex;align-items:center;gap:7px;font-size:14px}
+.friend-discovery-intro strong svg{width:19px;height:19px;color:#ff982f}
+.friend-discovery-intro p{font-size:11px;color:#a2b5c5;line-height:1.55;margin:6px 0 12px}
+.friend-discovery-card .searchbox{margin:0 0 14px}
+.friend-discovery-card .friend-request-row{align-items:center}
+.friend-discovery-card .friend-request-row>.btn{flex:none;min-width:88px}
+.friend-demo-label{font-size:10px;color:#b7c6d1;font-weight:700}
+.friend-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:11px}
+.friend-method{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:15px 7px;min-height:122px;border-radius:13px;border:1px solid #344a5e;background:#182836;color:#e4ecf6;cursor:pointer}
+.friend-method span{display:grid;place-items:center;width:37px;height:37px;background:#293f50;border-radius:11px;color:#ffae68}
+.friend-method span svg{width:20px;height:20px}
+.friend-method strong{font-size:12px}
+.friend-method small{font-size:10px;color:#a1b3c4;line-height:1.35}
+.friend-notification{margin:7px 0;border:1px solid #3f5f70;background:#1a3040}
+.friend-notification-title{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.friend-notification-title svg{width:19px;height:19px;color:#ff9d43}
+.friend-notification-title strong{font-size:12px}
+.friend-notification p{font-size:11px;margin-top:7px}
+.friend-notification .friend-request-actions{margin-top:11px}
+.friend-method:focus-visible,.friend-request-actions .btn:focus-visible{outline:2px solid #ff963e;outline-offset:2px}
+@media(max-width:370px){.friend-request-row{gap:8px}.friend-discovery-card .friend-request-row{flex-wrap:wrap}.friend-discovery-card .friend-request-row>.btn{margin-left:50px}.friend-request-actions .btn{font-size:10px}}
