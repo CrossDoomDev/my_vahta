@@ -158,3 +158,21 @@
 .friend-notification .friend-request-actions{margin-top:11px}
 .friend-method:focus-visible,.friend-request-actions .btn:focus-visible{outline:2px solid #ff963e;outline-offset:2px}
 @media(max-width:370px){.friend-request-row{gap:8px}.friend-discovery-card .friend-request-row{flex-wrap:wrap}.friend-discovery-card .friend-request-row>.btn{margin-left:50px}.friend-request-actions .btn{font-size:10px}}
+
+/* Authenticated Django social views replace demo data on the local server. */
+.server-social-row{display:flex;gap:9px;align-items:center;padding:12px 0;border-bottom:1px solid #2d3c4b;flex-wrap:wrap}
+.server-social-row:last-child{border-bottom:0}
+.server-social-avatar{width:37px;height:37px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:50%;background:#274151;color:#ffbc7d;font-weight:800}
+.server-social-person{flex:1;min-width:100px;display:flex;flex-direction:column;gap:4px}
+.server-social-person strong{font-size:12px;overflow-wrap:anywhere}
+.server-social-person small{font-size:10px;color:#9db1c2}
+.server-social-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.server-section-heading{margin:15px 0 8px}
+.server-social-results{min-height:44px}
+.server-notice{border-bottom:1px solid #2d3c4b;padding:12px 0}
+.server-notice strong{font-size:12px}
+.server-notice p{font-size:11px;color:#9fb4c3;margin:6px 0}
+.server-chat-history{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:8px 0}
+.server-chat-message{max-width:86%;background:#254155;color:#f4f7fa;border-radius:10px;padding:9px;font-size:12px;overflow-wrap:anywhere}
+.server-chat-message.mine{align-self:flex-end;background:#573721}
+.server-chat-message.theirs{align-self:flex-start}
