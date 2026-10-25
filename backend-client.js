@@ -7,6 +7,7 @@
  const BASE="/api/v1", STORAGE="mv-api-dev-token";
  let token=sessionStorage.getItem(STORAGE)||"",available=false,account=null,revision=null,dialog=null;
  let notificationCount=0,requestCount=0,searchTimer=null,chatPeer=null,socialLoadId=0;
+  let serverFriends=[],serverFriendsFilter='all',serverFriendsSort='original';
  const state={
   get available(){return available},
   get connected(){return Boolean(available&&token&&account)},
@@ -68,6 +69,30 @@
    if(fb){fb.hidden=requestCount===0;fb.textContent=requestCount>9?"9+":String(requestCount)}
   }catch{/* Show cached counts while offline. */}
  }
+ function serverFriendsMarkup(){
+  const rows=serverFriends.filter(p=>serverFriendsFilter==='all'||
+   (serverFriendsFilter==='online'?p.is_online===true:p.work_status===serverFriendsFilter));
+  if(serverFriendsSort==='name')rows.sort((a,b)=>String(a.display_name||a.handle||'').localeCompare(String(b.display_name||b.handle||''),'ru',{sensitivity:'base'}));
+  return rows.map(p=>{
+   const online=p.is_online===true;
+   const work={shift:'На вахте',rest:'Межвахта',vacation:'Отпуск'}[p.work_status]||'';
+   const status='<span class="server-friend-presence '+(online?'online':'')+'">'+(online?'● Онлайн':'○ Не в сети')+'</span>'+
+    (work?'<span class="server-friend-work">'+escape(work)+'</span>':'');
+   return socialCard(p,'<span class="server-friend-statuses">'+status+'</span>'+
+    '<button class="btn small secondary" data-mv-action="chat" data-id="'+escape(p.id)+'" data-name="'+escape(p.display_name)+'">Написать</button>'+
+    '<button class="btn small ghost" data-mv-action="remove" data-id="'+escape(p.id)+'">Удалить</button>');
+  }).join('')||'<p class="note-text">По выбранному фильтру друзей нет.</p>';
+ }
+ function serverFriendControls(){
+  const statuses=[['all','Все статусы'],['shift','На вахте'],['rest','Межвахта'],['vacation','Отпуск'],['online','Онлайн']];
+  const filter='<select id="mvFriendFilter" aria-label="Фильтр друзей по статусу">'+statuses.map(([k,t])=>
+   '<option value="'+k+'"'+(serverFriendsFilter===k?' selected':'')+'>'+t+'</option>').join('')+'</select>';
+  const sort='<select id="mvFriendSort" aria-label="Сортировка друзей">'+
+   '<option value="original"'+(serverFriendsSort==='original'?' selected':'')+'>По умолчанию</option>'+
+   '<option value="name"'+(serverFriendsSort==='name'?' selected':'')+'>По имени (А–Я)</option></select>';
+  return '<div class="section-head friends-heading"><h2>Мои друзья <span class="small muted">'+serverFriends.length+
+   '</span></h2><span class="friends-sort-controls">'+filter+sort+'</span></div>';
+ }
  async function loadFriends(loadId){
   const target=document.getElementById("mvServerFriends");if(!target)return;
   try{
@@ -75,15 +100,12 @@
    if(loadId!==socialLoadId||!document.getElementById("mvServerFriends"))return;
    const incoming=(requests.results||[]).filter(x=>x.status==="pending"&&x.recipient===account.id);
    const outgoing=(requests.results||[]).filter(x=>x.status==="pending"&&x.sender===account.id);
-   const people=list.results||[];
+   serverFriends=list.results||[];
    target.innerHTML=
     (incoming.length?'<h3>Входящие заявки ('+incoming.length+')</h3>'+incoming.map(requestRow).join(''):'')+
     (outgoing.length?'<h3 class="server-section-heading">Отправленные заявки</h3>'+outgoing.map(requestRow).join(''):'')+
-    '<h3 class="server-section-heading">Мои друзья ('+people.length+')</h3>'+
-    (people.length?people.map(p=>socialCard(p,
-     '<button class="btn small secondary" data-mv-action="chat" data-id="'+escape(p.id)+'" data-name="'+escape(p.display_name)+'">Написать</button>'+
-     '<button class="btn small ghost" data-mv-action="remove" data-id="'+escape(p.id)+'">Удалить</button>')).join(''):
-     '<p class="note-text">Пока нет подтверждённых друзей. Найдите аккаунт и отправьте заявку.</p>');
+    serverFriendControls()+
+    '<div id="mvServerFriendResults">'+serverFriendsMarkup()+'</div>';
   }catch(err){if(target)target.textContent="Ошибка загрузки: "+err.message}
  }
  async function loadNotifications(loadId){
@@ -110,10 +132,14 @@
     '<p class="note-text">Чтобы начать переписку, сначала добавьте человека в друзья.</p>';
   }catch(err){target.textContent="Ошибка загрузки: "+err.message}
  }
+ async function heartbeat(){
+  if(!state.connected||document.hidden)return;
+  try{await api("/me/presence/","POST")}catch{/* Presence is best-effort. */}
+ }
  function onRender(view){
   if(!state.connected)return;
   const loadId=++socialLoadId;
-  if(view==="friends")loadFriends(loadId);
+  if(view==="friends"){heartbeat().then(()=>loadFriends(loadId));}
   else if(view==="notificationInbox")loadNotifications(loadId);
   else if(view==="messages")loadMessages(loadId);
   loadCounts();
@@ -199,6 +225,7 @@
     account=response.account;
     await updateRevision();
     await loadNotificationSettings();
+    await heartbeat();
     showAccount();refresh();message("Подключено. Данные можно загрузить или отправить вручную.");
    }catch(err){message(err.message,true)}
    finally{submit.disabled=false}
@@ -274,7 +301,7 @@
   if(!available){return}
   ensureDialog();
   if(token&&!account){
-   try{account=await api("/me/");await updateRevision();await loadNotificationSettings()}catch{token="";sessionStorage.removeItem(STORAGE);account=null}
+   try{account=await api("/me/");await updateRevision();await loadNotificationSettings();await heartbeat()}catch{token="";sessionStorage.removeItem(STORAGE);account=null}
   }
   if(account)showAccount();else showForm();
   if(!dialog.open)dialog.showModal();
@@ -285,10 +312,25 @@
    const data=await response.json();
    if(response.ok&&data.status==="ok"&&data.service==="my_vahta"){
     available=true;
-    if(token){try{account=await api("/me/");await updateRevision()}catch{token="";account=null;sessionStorage.removeItem(STORAGE)}}
+    if(token){try{account=await api("/me/");await updateRevision();await loadNotificationSettings();await heartbeat()}catch{token="";account=null;sessionStorage.removeItem(STORAGE)}}
     refresh();
    }
   }catch{/* Pages or offline: remain in UI-only mode. */}
  }
+ document.addEventListener('change',event=>{
+  const el=event.target;
+  if(!state.connected||!document.getElementById('mvServerFriendResults'))return;
+  if(el.id==='mvFriendFilter')serverFriendsFilter=el.value;
+  else if(el.id==='mvFriendSort')serverFriendsSort=el.value;
+  else return;
+  const list=document.getElementById('mvServerFriendResults');
+  if(list)list.innerHTML=serverFriendsMarkup();
+ });
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)heartbeat();});
+ setInterval(()=>{
+  if(!state.connected||document.hidden)return;
+  heartbeat();
+  if(document.getElementById('mvServerFriends'))loadFriends(socialLoadId);
+ },60000);
  detect();
 })();
