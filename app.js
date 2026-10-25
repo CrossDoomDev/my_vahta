@@ -131,7 +131,7 @@ function shiftProgress(){const len=Math.max(1,daysBetween(state.shift.start,stat
 const STATUS_LABEL={shift:'На вахте',rest:'На межвахте',vacation:'В отпуске',offline:'Статус скрыт'};
 function unreadMessages(){return state.chats.reduce((n,c)=>n+(Number(c.unread)||0),0)}
 function unreadNotifications(){return state.notifications.filter(n=>!n.read).length}
-function nav(view){ui.view=view;ui.chatId=view==='thread'?ui.chatId:null;render();$('appMain').scrollTop=0;window.location.hash=view==='home'?'':view}
+function nav(view){ui.view=view;ui.chatId=view==='thread'?ui.chatId:null;render();$('appMain').scrollTop=0;window.location.hash=view==='home'?'':view==='organizationDetail'&&ui.orgId?'organizationDetail/'+ui.orgId:view}
 function updateBadges(){const m=unreadMessages(),n=unreadNotifications();$('messagesBadge').hidden=m===0;$('messagesBadge').textContent=m>9?'9+':m;$('notificationBadge').hidden=n===0;$('notificationBadge').textContent=n>9?'9+':n;const selected=['thread','messages'].includes(ui.view)?'messages':ui.view==='friendProfile'?'friends':['organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(ui.view)?'more':ui.view;document.querySelectorAll('.bottom-nav button').forEach(b=>{const a=b.dataset.nav===selected;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')})}
 function render(){updateBadges();const renderers={home:homePage,calendar:calendarPage,finance:financePage,messages:messagesPage,thread:threadPage,friends:friendsPage,friendProfile:friendProfilePage,more:morePage,organization:organizationPage,privacy:privacyPage,statistics:statsPage,notes:notesPage,holidays:holidaysPage,profile:profilePage,notifications:notificationsPage,settings:settingsPage,organizations:()=>window.MV_ORG.catalogPage(state,ui),organizationDetail:()=>window.MV_ORG.detailPage(state,ui)};try{$('appMain').innerHTML=(renderers[ui.view]||homePage)()}catch(e){console.error('Render error',e);$('appMain').innerHTML='<div class="card"><h2>Не удалось открыть раздел</h2><p class="note-text">Попробуйте вернуться на главную страницу.</p>'+button('На главную','go-home','primary')+'</div>'}}
 function nextEvents(){const p=state.payments.filter(p=>p.date>=today()).slice().sort((a,b)=>a.date.localeCompare(b.date)).map(p=>({date:p.date,title:p.type==='advance'?'Аванс':p.type==='salary'?'Зарплата':'Выплата',desc:money(p.amount),kind:'coins',color:'green'}));const events=[{date:state.shift.end,title:'Конец вахты',desc:'Возвращение на межвахтовый отдых',kind:'flag',color:'orange'}].concat(p).concat(holidaysForYear(parseISO(today()).getFullYear()).filter(h=>h.date>=today()).map(h=>({date:h.date,title:h.name,desc:h.sector,kind:'holiday',color:'red'}))).filter(x=>x.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);return events}
@@ -488,6 +488,10 @@ $('importFile').addEventListener('change',async e=>{const file=e.target.files?.[
 $('appDialog').addEventListener('click',e=>{if(e.target===$('appDialog'))closeDialog()});
 window.addEventListener('focus',()=>{render()});
 // Use hash navigation only for known top-level views. Never interpolate it into HTML.
-const hash=location.hash.replace(/^#/, '');if(['home','calendar','finance','messages','friends','more','organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(hash))ui.view=hash;
+const hash=location.hash.replace(/^#/, '');
+if(hash.startsWith('organizationDetail/')){
+ const organizationId=hash.slice('organizationDetail/'.length);
+ if(window.MV_ORG.byId(organizationId)){ui.orgId=organizationId;ui.view='organizationDetail'}
+} else if(['home','calendar','finance','messages','friends','more','organizations','organizationDetail','organization','privacy','statistics','notes','holidays','profile','notifications','settings'].includes(hash))ui.view=hash;
 render();
 })();
