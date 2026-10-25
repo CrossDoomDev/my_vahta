@@ -192,6 +192,84 @@ function financePage(){const shift=shiftPeriod(),shiftPayments=state.payments.fi
 </section>
 <div class="card"><div class="month-header"><button data-action="finance-prev" aria-label="Предыдущий месяц">${icon('arrow-left')}</button><strong>${longMonth(ui.financeMonth)}</strong><button data-action="finance-next" aria-label="Следующий месяц">${icon('chevron')}</button></div><p class="small muted">Получено за месяц</p><div class="amount">${money(tot)}</div><p class="tiny muted">Записывайте фактические поступления, а не прогноз.</p><div class="chart-wrap"><div class="chart">${weeks.map((num,i)=>`<div class="chart-item" title="${money(num)}"><i style="--bar-height:${Math.round(num/max*83)}px"></i><span>${i+1} нед.</span></div>`).join('')}</div></div><div class="money-tiles"><div class="money-tile">${tile('coins','green')}<div class="amount-sm">${money(advance)}</div><p>Авансы</p></div><div class="money-tile">${tile('briefcase','purple')}<div class="amount-sm">${money(salary)}</div><p>Зарплаты</p></div></div>${button(icon('plus')+' Добавить выплату','add-payment','primary full')}</div>
 ${section('История выплат')}<div class="card compact">${items.length?items.map(p=>`<div class="payment-row">${tile(p.type==='advance'?'coins':'briefcase',p.type==='advance'?'green':'purple')}<div class="grow"><strong>${paymentType(p.type)}</strong><small>${dateFull(p.date)}${p.description?' · '+html(p.description):''}</small></div><div class="value">+ ${money(p.amount)}</div><button type="button" class="btn-round" data-action="edit-payment" data-id="${p.id}" aria-label="Изменить выплату">${icon('edit')}</button></div>`).join(''):'<div class="empty">Пока нет записей за этот месяц. Добавьте аванс или зарплату.</div>'}</div>`}
+
+const DEMO_INCOMING={id:"demo-invite-colleague",name:"Учебный коллега",role:"Демонстрационный аккаунт",company:"Тестовый профиль"};
+const DEMO_OUTGOING={id:"demo-directory-colleague",name:"Тестовый пользователь",role:"Демонстрационный аккаунт",company:"Тестовый профиль"};
+function demoAccount(info){
+ if(!state.accounts[info.id])state.accounts[info.id]={id:info.id,name:info.name,role:info.role,company:info.company,avatarUrl:"",letter:info.name.slice(0,1),skin:"alt3",isDemo:true,currentOrganizationId:"",workHistory:[]};
+ return state.accounts[info.id];
+}
+function addFriendNotice(title,body,kind,request){
+ state.notifications.unshift({id:id(),title,body,date:today(),read:false,kind,requestId:request?.id||"",accountId:request?.accountId||""});
+}
+function demoIncomingRequest(){
+ const acc=demoAccount(DEMO_INCOMING);
+ if(friendByAccountId(acc.id)||pendingFriendRequests().some(r=>r.accountId===acc.id)){toast("Тестовая заявка уже есть или принята");return}
+ const request={id:"request-"+id(),accountId:acc.id,direction:"incoming",status:"pending",createdAt:today(),demo:true};
+ state.friendRequests.unshift(request);
+ addFriendNotice("Тестовая заявка в друзья","Учебный коллега отправил демонстрационную заявку.","friend_request",request);
+ persist();render();toast("Поступила тестовая заявка в друзья");
+}
+function sendDemoFriendRequest(accountId){
+ if(accountId!==DEMO_OUTGOING.id)return;
+ const acc=demoAccount(DEMO_OUTGOING);
+ if(friendByAccountId(accountId)){toast("Этот профиль уже в друзьях");return}
+ if(pendingFriendRequests("outgoing").some(r=>r.accountId===accountId)){toast("Тестовая заявка уже отправлена");return}
+ state.friendRequests.unshift({id:"request-"+id(),accountId,direction:"outgoing",status:"pending",createdAt:today(),demo:true});
+ persist();render();toast("Тестовая заявка создана только на вашем устройстве");
+}
+function finishFriendRequest(requestId,decision){
+ const r=state.friendRequests.find(r=>r.id===requestId&&r.status==="pending");
+ if(!r||!state.accounts[r.accountId]||!["accepted","declined","cancelled"].includes(decision))return;
+ if(r.direction==="incoming"&&!["accepted","declined"].includes(decision))return;
+ if(r.direction==="outgoing"&&(!r.demo||!["accepted","cancelled"].includes(decision)))return;
+ r.status=decision;
+ if(decision==="accepted"){
+  if(!friendByAccountId(r.accountId))state.friends.push({accountId:r.accountId,state:"offline",days:0});
+  const person=accountById(r.accountId);
+  addFriendNotice("Добавлен друг: демонстрация",person.name+" теперь в списке друзей (локальный тест).","friend_accepted",r);
+ }
+ state.notifications.filter(n=>n.kind==="friend_request"&&n.requestId===r.id).forEach(n=>n.read=true);
+ persist();render();
+ toast(decision==="accepted"?"Демонстрационный профиль добавлен в друзья":decision==="declined"?"Заявка отклонена":"Заявка отменена");
+}
+function friendRequestItem(r){
+ const a=accountById(r.accountId);if(!a)return "";
+ const incoming=r.direction==="incoming",rid=html(r.id);
+ return `<article class="friend-request-row">
+   <span class="friend-request-avatar">${avatarByAccountId(r.accountId)}</span>
+   <div class="friend-request-main"><strong>${html(a.name)}</strong><small>Тестовый аккаунт · заявка только на этом устройстве</small>
+    <div class="friend-request-actions">${incoming?
+      `<button type="button" class="btn primary small" data-action="accept-friend-request" data-id="${rid}">Принять</button><button type="button" class="btn secondary small" data-action="decline-friend-request" data-id="${rid}">Отклонить</button>`:
+      `<span class="friend-pending-label">Ожидает ответа · демо</span><button type="button" class="btn secondary small" data-action="cancel-friend-request" data-id="${rid}">Отменить</button><button type="button" class="btn ghost small" data-action="demo-accept-sent" data-id="${rid}">Проверить принятие</button>`}
+    </div>
+   </div>
+ </article>`;
+}
+function friendDiscoveryResults(){
+ const query=ui.friendDiscoverySearch.trim().toLocaleLowerCase("ru"),a=DEMO_OUTGOING;
+ if(query&&![a.name,a.id,a.role].some(t=>t.toLocaleLowerCase("ru").includes(query)))return '<div class="empty">Реальный поиск появится после подключения сервера. Для проверки введите «Тестовый».</div>';
+ const friend=state.friends.some(f=>f.accountId===a.id);
+ const pending=pendingFriendRequests("outgoing").some(r=>r.accountId===a.id);
+ return `<div class="friend-request-row"><span class="friend-request-avatar">${avatarByAccountId(a.id)}</span><div class="friend-request-main"><strong>${html(a.name)}</strong><small>ID: ${html(a.id)} · учебная запись</small></div><button type="button" class="btn small ${friend||pending?'secondary':'primary'}" ${friend||pending?'disabled':''} data-action="send-demo-request" data-id="${html(a.id)}">${friend?'В друзьях':pending?'Отправлена':'Заявка'}</button></div>`;
+}
+function friendDiscoveryPage(){
+ return `${title("Найти друзей","Поиск аккаунтов, контакты и приглашения",'<button type="button" class="btn secondary small" data-action="back-to-friends">Назад</button>')}
+ <div class="card friend-discovery-card">
+  <div class="friend-discovery-intro"><strong>${icon('search')} Поиск пользователей</strong><p>После запуска сервера здесь будут отображаться только зарегистрированные аккаунты. Номер телефона не показывается другим пользователям.</p></div>
+  <label class="searchbox">${icon('search')}<input id="friendDiscoverySearch" type="search" value="${html(ui.friendDiscoverySearch)}" maxlength="80" placeholder="ID или имя пользователя" autocomplete="off" aria-label="Поиск зарегистрированного пользователя"></label>
+  <div class="friend-demo-label">Пример результата для проверки интерфейса</div><div id="friendDiscoveryResults">${friendDiscoveryResults()}</div>
+ </div>
+ <div class="friend-action-grid">
+  <button class="friend-method" type="button" data-action="find-contacts"><span>${icon('friends')}</span><strong>Контакты</strong><small>Выбрать из телефона</small></button>
+  <button class="friend-method" type="button" data-action="invite-friend"><span>${icon('send')}</span><strong>Пригласить</strong><small>Поделиться ссылкой</small></button>
+ </div>
+ <div class="card friend-discovery-card"><h3>Проверка заявок</h3><p class="note-text">Сервер ещё не подключён. Здесь можно проверить получение заявки, уведомление, принятие и появление человека в друзьях.</p>
+  ${button(icon('plus')+' Создать тестовую входящую заявку','demo-incoming-request','secondary full')}
+ </div>
+ <p class="friend-demo-notice">${icon('shield')} Телефонная книга не загружается автоматически. Поиск аккаунта по номеру станет возможным после запуска сервера и подтверждения телефона.</p>`;
+}
+
 function friendAvatar(f,size=""){return avatarByAccountId(f?.accountId||f?.id,size)}
 function friendStatus(f){
  const config={
